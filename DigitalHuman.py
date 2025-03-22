@@ -8,6 +8,10 @@ import subprocess
 import os
 import requests
 from opencc import OpenCC
+import shutil
+from fastapi.staticfiles import StaticFiles
+import time
+
 
 from utils.CutVoice import trim_tail_by_energy_and_gradient
 
@@ -16,6 +20,11 @@ add_safe_globals({"RAdam": RAdam})
 
 cc = OpenCC('t2s')
 
+STATIC_AUDIO_DIR = "static/audio"
+os.makedirs(STATIC_AUDIO_DIR, exist_ok=True)
+
+demo_config = gr.Blocks()
+demo_config.app.mount("/static/audio", StaticFiles(directory=STATIC_AUDIO_DIR), name="audio")
 
 # 注册其他可能需要的 TTS 类（避免 torch.load 报错）
 def safe_register_all_globals():
@@ -183,6 +192,15 @@ with gr.Blocks() as demo:
                 image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1, container=True,
                                           show_copy_button=True)
+                image_preview = gr.Image(label="头像预览", interactive=False)
+
+                def update_image_preview(image_file):
+                    if not image_file or not os.path.exists(image_file):
+                        return gr.update(visible=False)
+                    if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
+                        return gr.update(visible=False)
+                    return gr.update(value=image_file, visible=True)
+                image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
         with gr.Row():
             with gr.Column():
