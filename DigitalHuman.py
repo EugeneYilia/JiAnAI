@@ -75,13 +75,20 @@ def transcribe_audio(audio_file):
         return "⚠️ 没有上传任何音频文件"
 
     try:
-        # 确保上传的音频文件已写入且不为空
+        # 文件是否存在 + 上传完成校验
         if not os.path.exists(audio_file):
             return "❗ 找不到音频文件，请重新上传"
         if os.path.getsize(audio_file) < 2048:
-            return "⚠️ 音频文件太小，可能无效或上传不完整"
+            return "⚠️ 音频文件太小，可能上传不完整或为空，请重新上传"
 
-        # 使用 Whisper 识别并转换为简体中文
+        # 检查是否为有效音频文件（尝试用 ffmpeg 解码）
+        import soundfile as sf
+        try:
+            _ = sf.info(audio_file)
+        except Exception:
+            return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
+
+        # Whisper 识别并转简体（保留标点）
         result = asr_model.transcribe(audio_file, language="zh")
         simplified = ""
         for char in result["text"]:
@@ -138,14 +145,14 @@ with gr.Blocks() as demo:
         generate_btn.click(fn=generate_speech, inputs=text_input, outputs=output_audio)
 
     with gr.Tab("语音转文字"):
-        audio_input = gr.Audio(label="上传语音", type="filepath")
+        audio_input = gr.Audio(label="上传语音", type="filepath", interactive=True)
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
 
     with gr.Tab("数字人动画"):
-        image_input = gr.Image(label="上传头像", type="filepath")
-        driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath")
+        image_input = gr.Image(label="上传头像", type="filepath", interactive=True)
+        driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True)
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
         generate_video_btn.click(fn=generate_video, inputs=[image_input, driven_audio_input], outputs=video_output)
