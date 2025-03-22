@@ -38,7 +38,7 @@ MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 
 # 初始化 Whisper 模型 (ASR)
-asr_model = whisper.load_model("base")
+asr_model = whisper.load_model("large")
 
 
 # 模型自动下载器（for SadTalker）
@@ -180,6 +180,7 @@ with gr.Blocks() as demo:
             with gr.Column():
                 image_input = gr.File(label="上传头像 (PNG/JPG)", file_types=[".png", ".jpg", ".jpeg"],
                                       interactive=True)
+                image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1, container=True,
                                           show_copy_button=True)
 
@@ -187,6 +188,7 @@ with gr.Blocks() as demo:
             with gr.Column():
                 driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True,
                                               show_label=True, sources=["upload"], format="wav")
+                audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
                 audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1, container=True,
                                           show_copy_button=True)
 
@@ -207,7 +209,11 @@ with gr.Blocks() as demo:
             return "⚠️ 音频文件过小或上传失败"
 
 
+        image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
+                           outputs=image_name)
         image_input.change(fn=check_image_upload_status, inputs=image_input, outputs=image_status)
+        driven_audio_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=driven_audio_input,
+                                  outputs=audio_name)
         driven_audio_input.change(fn=check_audio_upload_status_generic, inputs=driven_audio_input, outputs=audio_status)
 
         generate_video_btn.click(fn=generate_video, inputs=[image_input, driven_audio_input], outputs=video_output)
@@ -218,4 +224,4 @@ with gr.Blocks() as demo:
         download_output = gr.Textbox(label="状态输出")
         download_btn.click(fn=download_models, outputs=download_output)
 
-demo.launch()
+demo.launch(share=True)
