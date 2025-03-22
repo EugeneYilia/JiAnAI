@@ -71,9 +71,17 @@ def generate_speech(text):
 
 # 语音转文字
 def transcribe_audio(audio_file):
-    if not audio_file or not os.path.exists(audio_file) or os.path.getsize(audio_file) < 2048:
-        return "⚠️ 音频无效或未上传成功"
+    if not audio_file:
+        return "⚠️ 没有上传任何音频文件"
+
     try:
+        # 确保上传的音频文件已写入且不为空
+        if not os.path.exists(audio_file):
+            return "❗ 找不到音频文件，请重新上传"
+        if os.path.getsize(audio_file) < 2048:
+            return "⚠️ 音频文件太小，可能无效或上传不完整"
+
+        # 使用 Whisper 识别并转换为简体中文
         result = asr_model.transcribe(audio_file, language="zh")
         simplified = cc.convert(result["text"])
         return simplified
