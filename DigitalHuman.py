@@ -83,7 +83,12 @@ def transcribe_audio(audio_file):
 
         # 使用 Whisper 识别并转换为简体中文
         result = asr_model.transcribe(audio_file, language="zh")
-        simplified = cc.convert(result["text"])
+        simplified = ""
+        for char in result["text"]:
+            if char in "。！？；，、,.!?;:":
+                simplified += char
+            else:
+                simplified += cc.convert(char)
         return simplified
     except Exception as e:
         return f"识别失败：{str(e)}"
