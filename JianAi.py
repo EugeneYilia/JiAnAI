@@ -27,6 +27,9 @@ def generate_speech(text):
     return output_path
 
 # 语音识别函数
+# 这里使用 Whisper 模型进行语音转文字识别
+# 注意：Whisper 模型需要一定的计算资源，可能会比较慢
+# 可以根据需要选择不同大小的模型（"tiny" / "base" / "small" / "medium" / "large"）
 def transcribe_audio(audio_file):
     if audio_file is None:
         return "请先上传语音文件"
