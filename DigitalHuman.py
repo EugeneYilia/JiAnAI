@@ -4,16 +4,19 @@ from TTS.api import TTS
 from TTS.utils.radam import RAdam
 from torch.serialization import add_safe_globals
 import whisper
-from utils.CutVoice import trim_tail_by_energy_and_gradient
 import subprocess
 import os
+import requests
+from opencc import OpenCC
+
+from utils.CutVoice import trim_tail_by_energy_and_gradient
 
 # 正确注册 RAdam 类
 add_safe_globals({"RAdam": RAdam})
 
-# 兼容 TTS 模型反序列化中引用的其他类
-import types
+cc = OpenCC('t2s')
 
+# 注册其他可能需要的 TTS 类（避免 torch.load 报错）
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -33,7 +36,31 @@ MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 
 # 初始化 Whisper 模型 (ASR)
-asr_model = whisper.load_model("base")  # 可换成 tiny/small/medium/large
+asr_model = whisper.load_model("base")
+
+# 模型自动下载器（for SadTalker）
+def download_models():
+    model_list = [
+        ("shape_predictor_68_face_landmarks.dat", "https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2/shape_predictor_68_face_landmarks.dat", "checkpoints"),
+        ("wav2lip.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/wav2lip.pth", "checkpoints"),
+        ("mapping_00109-model.pth.tar", "https://huggingface.co/guoyww/facevid2vid/resolve/main/mapping_00109-model.pth.tar", "checkpoints"),
+        ("parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
+        ("GFPGANv1.4.pth", "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth", "checkpoints/gfpgan")
+    ]
+
+    for name, url, folder in model_list:
+        os.makedirs(folder, exist_ok=True)
+        dest = os.path.join(folder, name)
+        if os.path.exists(dest):
+            print(f"[已存在] {name}")
+            continue
+        print(f"[下载中] {name} ...")
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(dest, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        print(f"[完成] {dest}")
 
 # 合成语音
 def generate_speech(text):
@@ -44,20 +71,26 @@ def generate_speech(text):
 
 # 语音转文字
 def transcribe_audio(audio_file):
-    if audio_file is None:
-        return "请先上传语音文件"
-    result = asr_model.transcribe(audio_file, language="zh")
-    return result["text"]
+    if not audio_file or not os.path.exists(audio_file) or os.path.getsize(audio_file) < 2048:
+        return "⚠️ 音频无效或未上传成功"
+    try:
+        result = asr_model.transcribe(audio_file, language="zh")
+        simplified = cc.convert(result["text"])
+        return simplified
+    except Exception as e:
+        return f"识别失败：{str(e)}"
 
 # 生成数字人动画（使用 SadTalker 的 launcher.py）
 def generate_video(image_path, audio_path):
-    if image_path is None or audio_path is None:
-        return "请上传图片和配音"
+    if not os.path.exists(image_path) or not os.path.exists(audio_path):
+        return "请上传有效的图片和音频"
+
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
-    output_video_path = os.path.join(output_dir, "result.mp4")
+
+    launcher_path = os.path.abspath("sadtalker/launcher.py")
     cmd = [
-        "python", "sadtalker/launcher.py",
+        "python", launcher_path,
         "--driven_audio", audio_path,
         "--source_image", image_path,
         "--result_dir", output_dir,
@@ -65,7 +98,13 @@ def generate_video(image_path, audio_path):
         "--still",
         "--enhancer", "gfpgan"
     ]
-    subprocess.run(cmd, check=True)
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        return f"生成失败：\n命令：{' '.join(e.cmd)}\n返回码：{e.returncode}"
+
+    output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
 # Gradio UI
@@ -90,5 +129,11 @@ with gr.Blocks() as demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
         generate_video_btn.click(fn=generate_video, inputs=[image_input, driven_audio_input], outputs=video_output)
+
+    with gr.Tab("模型下载"):
+        gr.Markdown("### 🧩 首次使用请点击下载 SadTalker 模型")
+        download_btn = gr.Button("📥 下载模型")
+        download_output = gr.Textbox(label="状态输出")
+        download_btn.click(fn=download_models, outputs=download_output)
 
 demo.launch()
