@@ -90,8 +90,15 @@ def transcribe_audio(audio_file):
 
 # 生成数字人动画（使用 SadTalker 的 launcher.py）
 def generate_video(image_path, audio_path):
-    if not os.path.exists(image_path) or not os.path.exists(audio_path):
-        return "请上传有效的图片和音频"
+    if not image_path or not os.path.exists(image_path):
+        return "⚠️ 没有上传头像图片或文件不存在"
+    if os.path.getsize(image_path) < 2048:
+        return "⚠️ 上传的头像文件太小，可能无效"
+
+    if not audio_path or not os.path.exists(audio_path):
+        return "⚠️ 没有上传音频文件或文件不存在"
+    if os.path.getsize(audio_path) < 2048:
+        return "⚠️ 音频文件太小，可能无效或上传不完整"
 
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
