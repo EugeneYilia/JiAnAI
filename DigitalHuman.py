@@ -130,7 +130,7 @@ def transcribe_audio(audio_file):
         save_recognition_history(result["text"], simplified)
         return simplified
     except Exception as e:
-        return f"识别失败：{str(e)}"
+        raise e
 
 
 # 生成数字人动画（使用 SadTalker 的 launcher.py）
