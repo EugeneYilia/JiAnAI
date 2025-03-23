@@ -11,9 +11,21 @@ from opencc import OpenCC
 import shutil
 from fastapi.staticfiles import StaticFiles
 import time
-
-
+import warnings
+import jieba
 from utils.CutVoice import trim_tail_by_energy_and_gradient
+
+import zipfile
+from docx import Document
+from datetime import datetime
+
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+jieba.setLogLevel(jieba.logging.WARN)
+
+RECOGNIZED_DIR = "recognized"
+os.makedirs(RECOGNIZED_DIR, exist_ok=True)
 
 # 正确注册 RAdam 类
 add_safe_globals({"RAdam": RAdam})
@@ -115,6 +127,7 @@ def transcribe_audio(audio_file):
                 simplified += char
             else:
                 simplified += cc.convert(char)
+        save_recognition_history(result["text"], simplified)
         return simplified
     except Exception as e:
         return f"识别失败：{str(e)}"
@@ -154,6 +167,49 @@ def generate_video(image_path, audio_path):
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
+def save_recognition_history(text_raw, text_simplified):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
+    filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
+
+    # 保存 txt
+    with open(filename_txt, "w", encoding="utf-8") as f:
+        f.write(f"[识别时间] {timestamp}\n")
+        f.write(f"[原始文本]\n{text_raw}\n\n")
+        f.write(f"[简体结果]\n{text_simplified}\n")
+
+    # 保存 docx
+    doc = Document()
+    doc.add_heading("语音识别结果", level=1)
+    doc.add_paragraph(f"识别时间: {timestamp}")
+    doc.add_paragraph("原始文本（繁体）:")
+    doc.add_paragraph(text_raw)
+    doc.add_paragraph("转换为简体：")
+    doc.add_paragraph(text_simplified)
+    doc.save(filename_docx)
+
+
+def export_recognition_zip():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_path = f"recognized_export_{timestamp}.zip"
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
+        for filename in os.listdir(RECOGNIZED_DIR):
+            file_path = os.path.join(RECOGNIZED_DIR, filename)
+            zipf.write(file_path, arcname=filename)
+    return zip_path
+
+def search_history_by_question(query):
+    hits = []
+    for filename in os.listdir(RECOGNIZED_DIR):
+        path = os.path.join(RECOGNIZED_DIR, filename)
+        if filename.endswith(".txt"):
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+                if query in content:
+                    hits.append(f"📄 {filename}\n{content[:300]}...\n---")
+    if not hits:
+        return "未找到相关内容。请尝试输入更常见的关键词。"
+    return "\n\n".join(hits)
 
 # Gradio UI
 with gr.Blocks() as demo:
@@ -241,5 +297,19 @@ with gr.Blocks() as demo:
         download_btn = gr.Button("📥 下载模型")
         download_output = gr.Textbox(label="状态输出")
         download_btn.click(fn=download_models, outputs=download_output)
+
+    with gr.Tab("识别历史"):
+        gr.Markdown("### 📄 导出历史 / 查询内容")
+
+        with gr.Row():
+            export_btn = gr.Button("📦 导出 ZIP")
+            export_file = gr.File(label="下载识别记录压缩包")
+            export_btn.click(fn=export_recognition_zip, outputs=export_file)
+
+        with gr.Row():
+            query_input = gr.Textbox(label="输入关键词或内容问题")
+            query_btn = gr.Button("🔍 查询记录")
+            query_result = gr.Textbox(label="查询结果", lines=8)
+            query_btn.click(fn=search_history_by_question, inputs=query_input, outputs=query_result)
 
 demo.launch(share=True)
