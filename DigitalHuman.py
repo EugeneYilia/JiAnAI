@@ -27,6 +27,9 @@ jieba.setLogLevel(jieba.logging.WARN)
 RECOGNIZED_DIR = "recognized"
 os.makedirs(RECOGNIZED_DIR, exist_ok=True)
 
+RECOGNIZED_EXPORT_DIR = "recognized_export"
+os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
+
 # 正确注册 RAdam 类
 add_safe_globals({"RAdam": RAdam})
 
@@ -344,8 +347,7 @@ def save_recognition_history(text_raw, text_simplified):
 
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_path = f"recognized/recognized_export_{timestamp}.zip"
-    import zipfile
+    zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
     with zipfile.ZipFile(zip_path, 'w') as zipf:
         for filename in os.listdir(RECOGNIZED_DIR):
             file_path = os.path.join(RECOGNIZED_DIR, filename)
