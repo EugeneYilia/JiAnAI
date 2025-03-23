@@ -182,7 +182,7 @@ def save_recognition_history(text_raw, text_simplified):
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
     doc.add_paragraph(f"识别时间: {timestamp}")
-    doc.add_paragraph("原始文本（繁体）:")
+    doc.add_paragraph("原始文本:")
     doc.add_paragraph(text_raw)
     doc.add_paragraph("转换为简体：")
     doc.add_paragraph(text_simplified)
