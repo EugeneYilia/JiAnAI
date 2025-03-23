@@ -344,7 +344,7 @@ def save_recognition_history(text_raw, text_simplified):
 
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_path = f"recognized_export_{timestamp}.zip"
+    zip_path = f"recognized/recognized_export_{timestamp}.zip"
     import zipfile
     with zipfile.ZipFile(zip_path, 'w') as zipf:
         for filename in os.listdir(RECOGNIZED_DIR):
