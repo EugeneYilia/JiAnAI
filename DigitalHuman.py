@@ -1,23 +1,21 @@
+import os
+import subprocess
+import warnings
+import zipfile
+from datetime import datetime
+
 import gradio as gr
+import jieba
+import requests
 import torch
+import whisper
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
-from torch.serialization import add_safe_globals
-import whisper
-import subprocess
-import os
-import requests
-from opencc import OpenCC
-import shutil
 from fastapi.staticfiles import StaticFiles
-import time
-import warnings
-import jieba
-from utils.CutVoice import trim_tail_by_energy_and_gradient
+from opencc import OpenCC
+from torch.serialization import add_safe_globals
 
-import zipfile
-from docx import Document
-from datetime import datetime
+from utils.CutVoice import trim_tail_by_energy_and_gradient
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
