@@ -37,13 +37,12 @@ STATIC_AUDIO_DIR = "static/audio"
 os.makedirs(STATIC_AUDIO_DIR, exist_ok=True)
 
 ############################################################################
-# 重点在这里：更细粒度的 Material 风格 CSS
+# 在这里为页面添加共济会图标背景 + 半透明效果
 ############################################################################
 material_css = """
 /* 导入 Roboto 字体 (如有网络问题可换国内CDN或本地字体) */
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
 
-/* 全局变量：可根据喜好定制 */
 :root {
   --md-primary: #1976d2;         /* Material Blue 600 */
   --md-primary-dark: #1565c0;    /* Material Blue 700 */
@@ -56,24 +55,32 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-/* 全局背景：浅色渐变 */
+/* 在 body 与 .gradio-container 上叠加背景图（共济会图标）+ 渐变 */
+/* 第一层 (url) 会在上面，第二层 (linear-gradient) 会在下面 */
 body, .gradio-container {
   margin: 0; 
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
-  background: linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
+
+  /* 将共济会图标置于上层，渐变置于下层 */
+  background:
+    url("https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Square_compasses.svg/360px-Square_compasses.svg.png")
+    no-repeat center 120px,
+    linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
+  background-size: 180px, cover;
+  background-attachment: scroll, fixed;
+  /* 令 .gradio-container 自身透明，以便看见底层图标 */
+  background-color: transparent !important;
 }
 
-/* 标题文字样式 */
+/* 标题文字样式 + 下方横线 */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   margin-top: 1.2em;
   margin-bottom: 0.8em;
   color: var(--md-secondary);
 }
-
-/* 让主标题更显眼，并添加下方横线 */
 h2 {
   text-align: center;
   position: relative;
@@ -88,7 +95,7 @@ h2::after {
   border-radius: 2px;
 }
 
-/* 统一按钮样式：更柔和的阴影和过渡 */
+/* 按钮统一样式 */
 button, .gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
@@ -105,9 +112,9 @@ button:hover, .gr-button:hover {
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* 标签页容器：卡片化 + 阴影 */
+/* 将 Tabs 区域背景设为半透明，方便看到图标 */
 .tabs, .tabitem {
-  background-color: var(--md-surface) !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
   border-radius: var(--md-border-radius);
   margin-top: 16px !important;
   padding: 16px !important;
@@ -125,15 +132,13 @@ button:hover, .gr-button:hover {
   padding: 0.6em 1.2em !important;
   transition: background-color var(--md-transition), color var(--md-transition);
 }
-
-/* 选中状态下的 Tab 标题 */
 .tabs button.selected {
   color: var(--md-primary) !important;
   border-bottom: 3px solid var(--md-primary) !important;
   background-color: transparent !important;
 }
 
-/* 输入组件（文本框、文件上传等）：阴影 + 圆角 */
+/* 输入组件（文本框、文件上传等） */
 textarea, input[type="text"], input[type="file"], .gr-textbox, .gr-file, .gr-textbox textarea {
   border: 1px solid #ccc !important;
   border-radius: var(--md-border-radius) !important;
@@ -156,12 +161,12 @@ textarea:focus, input[type="text"]:focus, .gr-textbox textarea:focus {
   gap: 16px !important;
 }
 
-/* 卡片化组件：让每个大区块像一个 card */
+/* 卡片化组件 */
 .gr-box, .gr-group, .gr-row, .gr-column, .tabitem {
   border-radius: var(--md-border-radius) !important;
 }
 
-/* Audio、Video 等媒体组件统一圆角 + 阴影 */
+/* 媒体组件 */
 audio, video {
   border-radius: var(--md-border-radius) !important;
   outline: none;
@@ -170,7 +175,7 @@ audio, video {
   margin-bottom: 8px;
 }
 
-/* Textbox, File, Audio 等外框 */
+/* 外框 */
 .gr-textbox, .gr-file, .gr-audio {
   background-color: var(--md-surface) !important;
   border-radius: var(--md-border-radius) !important;
@@ -201,16 +206,13 @@ label, .label, p, span {
   display: block;
 }
 
-/* 让 footer / share 按钮区域居中 */
+/* Footer / share 按钮区域居中 */
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
 }
 """
 
-############################################################################
-# 注册其他可能需要的 TTS 类（避免 torch.load 报错）
-############################################################################
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -365,12 +367,14 @@ def search_history_by_question(query):
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
 
-# 使用自定义CSS创建Blocks
 demo_config = gr.Blocks(css=material_css)
 demo_config.app.mount("/static/audio", StaticFiles(directory=STATIC_AUDIO_DIR), name="audio")
 
 with demo_config as demo:
-    gr.Markdown("## 🎤 本地数字人全功能工具")
+    ########################################################################
+    # 修改标题为「🎤 吉安智能体」
+    ########################################################################
+    gr.Markdown("## 🎤 吉安智能体")
 
     with gr.Tab("文字转语音"):
         text_input = gr.Textbox(label="输入文字")
