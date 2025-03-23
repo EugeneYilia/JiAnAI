@@ -65,7 +65,7 @@ body, .gradio-container {
 
   /* 将共济会图标置于上层，渐变置于下层 */
   background:
-    url("https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Square_compasses.svg/360px-Square_compasses.svg.png")
+    url("/assets/images/freemasonry.jpg")
     no-repeat center 120px,
     linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
   background-size: 180px, cover;
@@ -369,6 +369,7 @@ def search_history_by_question(query):
 
 demo_config = gr.Blocks(css=material_css)
 demo_config.app.mount("/static/audio", StaticFiles(directory=STATIC_AUDIO_DIR), name="audio")
+demo_config.app.mount("/assets/images", StaticFiles(directory="assets/images"), name="images")
 
 with demo_config as demo:
     ########################################################################
