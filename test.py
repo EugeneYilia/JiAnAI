@@ -1,16 +1,28 @@
-# This is a sample Python script.
+import os
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+import uvicorn
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+app = FastAPI()
 
+# 获取绝对路径，确保与脚本同级或你指定的目录下有 assets/images/freemasonry.jpg
+images_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "images")
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+# 打印出挂载路径和其中的文件列表，便于调试
+print("Mounting path =", images_path)
+try:
+    print("Files in images folder =", os.listdir(images_path))
+except FileNotFoundError:
+    print("ERROR: assets/images folder not found!")
+    # 你可以在这里抛出异常或继续
 
+# 将 /assets/images 映射到本地目录 images_path
+app.mount("/assets/images", StaticFiles(directory=images_path), name="images")
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+@app.get("/")
+def read_root():
+    return {"message": "Hello, world!"}
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    # 启动测试服务
+    uvicorn.run(app, host="127.0.0.1", port=8000)
