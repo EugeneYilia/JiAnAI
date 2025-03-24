@@ -32,12 +32,17 @@ cc = OpenCC('t2s')
 
 ############################################################################
 # 更新后的 CSS：
-# 1. 背景部分：底层固定背景图片 + 半透明渐变，渐变透明度降低到 0.3，使背景图片更明显
-# 2. 主要内容容器背景设置为 rgba(255,255,255,0.8)，使文字清晰，但同时透出一点背景
-# 3. 按钮和页签在 :active 状态下有缩放响应效果
+# 1. 强制 html 始终显示滚动条，防止切换页签时内容区域宽度变化导致背景图片水平移动。
+# 2. 背景部分：底层为固定背景图片 + 半透明白色渐变（透明度 0.3），使背景图片更明显。
+# 3. 主要内容容器背景透明度调整为 0.7，使背景图片更透出。
+# 4. 增加按钮和页签点击时的缩放响应效果。
 ############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
+
+html {
+  overflow-y: scroll; /* 始终显示滚动条 */
+}
 
 :root {
   --md-primary: #1976d2;
@@ -51,7 +56,7 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-/* 背景：底层为固定背景图片，叠加半透明白色渐变（透明度 0.3），使背景图片更明显 */
+/* 背景：底层固定图片 + 半透明白色渐变 */
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
@@ -64,9 +69,9 @@ html, body, .gradio-container {
   background-color: transparent !important;
 }
 
-/* 主要内容容器背景稍高不透明度 */
+/* 主要内容容器背景，设置为 70% 不透明 */
 .tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
-  background-color: rgba(255, 255, 255, 0.8) !important;
+  background-color: rgba(255, 255, 255, 0.7) !important;
   border-radius: var(--md-border-radius) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   margin-top: 8px !important;
@@ -88,7 +93,7 @@ html, body, .gradio-container {
   border-radius: var(--md-border-radius) !important;
 }
 
-/* 按钮风格及点击响应 */
+/* 按钮风格及点击响应效果 */
 button, .gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
