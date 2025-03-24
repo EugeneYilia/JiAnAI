@@ -49,144 +49,28 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 500;
-  margin-top: 1.2em;
-  margin-bottom: 0.8em;
-  color: var(--md-secondary);
-}
-
-h2 {
-  text-align: center;
-  position: relative;
-}
-h2::after {
-  content: "";
-  display: block;
-  width: 50px;
-  height: 3px;
-  background-color: var(--md-primary);
-  margin: 8px auto 0 auto;
-  border-radius: 2px;
-}
-
-button, .gr-button {
-  background-color: var(--md-primary) !important;
-  color: var(--md-text-on-primary) !important;
-  border: none !important;
-  border-radius: var(--md-border-radius) !important;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--md-transition), box-shadow var(--md-transition);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-  padding: 0.6em 1.2em !important;
-}
-button:hover, .gr-button:hover {
-  background-color: var(--md-primary-dark) !important;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.tabs, .tabitem {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-  border-radius: var(--md-border-radius);
-  margin-top: 16px !important;
-  padding: 16px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.tabs button {
-  background: transparent !important;
-  color: var(--md-secondary) !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  font-weight: 500 !important;
-  padding: 0.6em 1.2em !important;
-  transition: background-color var(--md-transition), color var(--md-transition);
-}
-.tabs button.selected {
-  color: var(--md-primary) !important;
-  border-bottom: 3px solid var(--md-primary) !important;
-  background-color: transparent !important;
-}
-
-textarea, input[type="text"], input[type="file"], .gr-textbox, .gr-file, .gr-textbox textarea {
-  border: 1px solid #ccc !important;
-  border-radius: var(--md-border-radius) !important;
-  background-color: #fff !important;
-  font-family: 'Roboto', sans-serif;
-  padding: 8px;
-  box-sizing: border-box;
-  transition: box-shadow var(--md-transition);
-}
-textarea:focus, input[type="text"]:focus, .gr-textbox textarea:focus {
-  box-shadow: 0 0 0 2px rgba(25,118,210,0.2);
-}
-
-.row, .gr-row {
-  gap: 16px !important;
-  margin-bottom: 8px !important;
-}
-.column, .gr-column {
-  gap: 16px !important;
-}
-
-.gr-box, .gr-group, .gr-row, .gr-column, .tabitem {
-  border-radius: var(--md-border-radius) !important;
-}
-
-audio, video {
-  border-radius: var(--md-border-radius) !important;
-  outline: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-top: 8px;
-  margin-bottom: 8px;
-}
-
-.gr-textbox, .gr-file, .gr-audio {
-  background-color: var(--md-surface) !important;
-  border-radius: var(--md-border-radius) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  padding: 8px !important;
-}
-
-.gr-textbox textarea {
-  min-height: 100px !important;
-}
-
-.copy-icon {
-  margin-left: 8px !important;
-}
-
-label, .label, p, span {
-  color: var(--md-text) !important;
-}
-
-.gr-video video {
-  max-height: 360px;
-  width: auto;
-  margin: 0 auto;
-  display: block;
-}
-
-.footer, .share-link-container {
-  text-align: center !important;
-  margin-top: 20px;
-}
-
+/* 在 body 与 .gradio-container 上使用两层背景：
+   1. 底层是固定(fixed)的全屏图片
+   2. 顶层是半透明渐变(带一点白色)
+*/
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
 
-  /* 单行写法, 改成 no-repeat center center 避免定位异常 */
-  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") 
-              no-repeat center center,
-              linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
+  /* 多层背景语法：先写图片(在视觉上会在底层)，再写线性渐变(叠加在上) */
+  background:
+    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.jpg") 
+      no-repeat center center fixed,
+    linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.85)) 
+      no-repeat fixed;
+
+  /* 两层都设置 cover，让图片与渐变都覆盖可视区域；不随内容滚动 */
   background-size: cover, cover;
   background-color: transparent !important;
 }
+
 """
 
 def safe_register_all_globals():
