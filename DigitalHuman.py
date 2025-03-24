@@ -49,20 +49,6 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-html, body, .gradio-container {
-  margin: 0;
-  padding: 0;
-  font-family: 'Roboto', sans-serif;
-  color: var(--md-text);
-
-  /* 单行写法, 改成 no-repeat center center 避免定位异常 */
-  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") 
-              no-repeat center center,
-              linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
-  background-size: cover, cover;
-  background-color: transparent !important;
-}
-
 h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   margin-top: 1.2em;
@@ -188,10 +174,18 @@ label, .label, p, span {
   margin-top: 20px;
 }
 
-body, html, .gradio-container {
-    border: 10px solid red !important;
-    color: red !important;
-    background: #eee !important;
+html, body, .gradio-container {
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+  color: var(--md-text);
+
+  /* 单行写法, 改成 no-repeat center center 避免定位异常 */
+  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") 
+              no-repeat center center,
+              linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
+  background-size: cover, cover;
+  background-color: transparent !important;
 }
 """
 
