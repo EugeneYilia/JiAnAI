@@ -62,7 +62,7 @@ html, body, .gradio-container {
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
-  background: 
+  background:
     url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") no-repeat center center fixed,
     linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)) no-repeat fixed;
   background-size: cover, cover;
@@ -140,7 +140,6 @@ button:active, .gr-button:active {
 }
 """
 
-
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -153,13 +152,26 @@ def safe_register_all_globals():
         "TTS.vocoder.models.wavernn": {"Wavernn"},
     })
 
-
 safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
 
+############################################################################
+# 新增一个格式化文件大小的辅助函数
+############################################################################
+def format_file_size(file_path):
+    """根据文件大小，自动转换为KB或MB，返回字符串."""
+    size_bytes = os.path.getsize(file_path)
+    if size_bytes < 1024 * 1024:
+        # 小于1MB，用KB
+        kb = size_bytes / 1024
+        return f"{kb:.2f} KB"
+    else:
+        # 大于等于1MB，用MB
+        mb = size_bytes / (1024 * 1024)
+        return f"{mb:.2f} MB"
 
 def download_models():
     model_list = [
@@ -169,8 +181,7 @@ def download_models():
         ("wav2lip.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/wav2lip.pth", "checkpoints"),
         ("mapping_00109-model.pth.tar",
          "https://huggingface.co/guoyww/facevid2vid/resolve/main/mapping_00109-model.pth.tar", "checkpoints"),
-        (
-        "parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
+        ("parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
         ("GFPGANv1.4.pth", "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth",
          "checkpoints/gfpgan")
     ]
@@ -188,13 +199,11 @@ def download_models():
                     f.write(chunk)
         print(f"[完成] {dest}")
 
-
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
-
 
 def transcribe_audio(audio_file):
     if not audio_file:
@@ -211,6 +220,9 @@ def transcribe_audio(audio_file):
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
 
+        # 新增：显示文件大小
+        size_str = format_file_size(audio_file)
+        # 这里保留原本逻辑
         result = asr_model.transcribe(audio_file, language="zh")
         simplified = ""
         for char in result["text"]:
@@ -219,10 +231,9 @@ def transcribe_audio(audio_file):
             else:
                 simplified += cc.convert(char)
         save_recognition_history(result["text"], simplified)
-        return simplified
+        return f"识别结果（文件大小: {size_str}）：\n{simplified}"
     except Exception as e:
         raise e
-
 
 def generate_video(image_path, audio_path):
     if not image_path or not os.path.exists(image_path):
@@ -255,7 +266,6 @@ def generate_video(image_path, audio_path):
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
-
 def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
@@ -274,7 +284,6 @@ def save_recognition_history(text_raw, text_simplified):
     doc.add_paragraph(text_simplified)
     doc.save(filename_docx)
 
-
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
@@ -283,7 +292,6 @@ def export_recognition_zip():
             file_path = os.path.join(RECOGNIZED_DIR, filename)
             zipf.write(file_path, arcname=filename)
     return zip_path
-
 
 def search_history_by_question(query):
     hits = []
@@ -297,7 +305,6 @@ def search_history_by_question(query):
     if not hits:
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
-
 
 demo_config = gr.Blocks(css=material_css)
 
@@ -323,13 +330,12 @@ with demo_config as demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
-
         def check_audio_upload_status(audio_file):
-            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(
-                    audio_file) > 2048 and audio_file.endswith('.wav'):
-                return "✅ 音频上传完成"
+            """音频文件上传后，检查大小并返回状态（含文件大小）"""
+            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048 and audio_file.endswith('.wav'):
+                size_str = format_file_size(audio_file)
+                return f"✅ 音频上传完成 (大小: {size_str})"
             return "⚠️ 音频文件过小或上传失败"
-
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
@@ -344,14 +350,12 @@ with demo_config as demo:
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
-
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
                         return gr.update(visible=False)
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False)
                     return gr.update(value=image_file, visible=True)
-
 
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
@@ -367,19 +371,20 @@ with demo_config as demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
-
         def check_image_upload_status(image_file):
-            if isinstance(image_file, str) and os.path.exists(image_file) and os.path.getsize(
-                    image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                return "✅ 头像上传完成"
+            """图片文件上传后，检查大小并返回状态（含文件大小）"""
+            if isinstance(image_file, str) and os.path.exists(image_file):
+                size_str = format_file_size(image_file)
+                if os.path.getsize(image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    return f"✅ 头像上传完成 (大小: {size_str})"
             return "⚠️ 头像文件过小或上传失败"
 
-
         def check_audio_upload_status_generic(audio_file):
+            """音频文件上传后，检查大小并返回状态（含文件大小）"""
             if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048:
-                return "✅ 音频上传完成"
+                size_str = format_file_size(audio_file)
+                return f"✅ 音频上传完成 (大小: {size_str})"
             return "⚠️ 音频文件过小或上传失败"
-
 
         image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
                            outputs=image_name)
