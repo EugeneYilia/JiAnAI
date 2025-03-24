@@ -56,7 +56,7 @@ html, body, .gradio-container {
   color: var(--md-text);
 
   /* 单行写法, 改成 no-repeat center center 避免定位异常 */
-  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.jpg") 
+  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") 
               no-repeat center center,
               linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
   background-size: cover, cover;
