@@ -31,7 +31,10 @@ add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
 ############################################################################
-# 更新后的 CSS：背景图片与渐变、主要容器不透明度及按钮/页签点击响应效果
+# 更新后的 CSS：
+# 1. 背景部分：底层固定背景图片 + 半透明渐变，渐变透明度降低到 0.3，使背景图片更明显
+# 2. 主要内容容器背景设置为 rgba(255,255,255,0.8)，使文字清晰，但同时透出一点背景
+# 3. 按钮和页签在 :active 状态下有缩放响应效果
 ############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
@@ -48,7 +51,7 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-/* 背景：底层固定图片 + 半透明渐变 */
+/* 背景：底层为固定背景图片，叠加半透明白色渐变（透明度 0.3），使背景图片更明显 */
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
@@ -56,21 +59,21 @@ html, body, .gradio-container {
   color: var(--md-text);
   background: 
     url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") no-repeat center center fixed,
-    linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)) no-repeat fixed;
+    linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)) no-repeat fixed;
   background-size: cover, cover;
   background-color: transparent !important;
 }
 
-/* 主要容器使用较高不透明度背景 */
+/* 主要内容容器背景稍高不透明度 */
 .tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
-  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
   border-radius: var(--md-border-radius) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   margin-top: 8px !important;
   padding: 12px !important;
 }
 
-/* 输入区域、文件上传、音频组件等采用纯白背景 */
+/* 输入区域、文件上传、音频组件采用纯白背景 */
 .gr-textbox, .gr-file, .gr-audio {
   background-color: #ffffff !important;
   border-radius: var(--md-border-radius) !important;
@@ -85,7 +88,7 @@ html, body, .gradio-container {
   border-radius: var(--md-border-radius) !important;
 }
 
-/* 按钮风格及点击响应效果 */
+/* 按钮风格及点击响应 */
 button, .gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
@@ -125,7 +128,7 @@ button:active, .gr-button:active {
   transform: scale(0.98);
 }
 
-/* Footer / share 区域 */
+/* Footer 区域 */
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
@@ -362,10 +365,12 @@ with demo_config as demo:
 
     with gr.Tab("识别历史"):
         gr.Markdown("### 📄 导出历史 / 查询内容")
+
         with gr.Row():
             export_btn = gr.Button("📦 导出 ZIP")
             export_file = gr.File(label="下载识别记录压缩包")
             export_btn.click(fn=export_recognition_zip, outputs=export_file)
+
         with gr.Row():
             query_input = gr.Textbox(label="输入关键词或内容问题")
             query_btn = gr.Button("🔍 查询记录")
