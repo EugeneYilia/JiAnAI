@@ -49,27 +49,88 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-/* 在 body 与 .gradio-container 上使用两层背景：
-   1. 底层是固定(fixed)的全屏图片
-   2. 顶层是半透明渐变(带一点白色)
-*/
+/* 整个页面的背景：底层是固定(fixed)的图片 + 半透明渐变 */
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
 
-  /* 多层背景语法：先写图片(在视觉上会在底层)，再写线性渐变(叠加在上) */
+  /* 多层背景：先图片，后渐变。都用 cover 覆盖屏幕，不随内容滚动 */
   background:
-    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.jpg") 
+    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png")
       no-repeat center center fixed,
-    linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.85)) 
+    linear-gradient(rgba(255,255,255,0.4), rgba(255,255,255,0.4)) /* 半透明 */
       no-repeat fixed;
 
-  /* 两层都设置 cover，让图片与渐变都覆盖可视区域；不随内容滚动 */
   background-size: cover, cover;
   background-color: transparent !important;
 }
+
+/* 让 Tabs、Box 等主要容器有更高的不透明度背景，以便文字清晰 */
+.tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
+  background-color: rgba(255, 255, 255, 0.9) !important; /* 0.9 不透明度 */
+  border-radius: var(--md-border-radius) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-top: 8px !important; /* 让容器与背景分离一点 */
+  padding: 12px !important;   /* 内间距让文字更舒展 */
+}
+
+/* 输入区域、文件上传、音频组件等，底色稍微提高亮度 */
+.gr-textbox, .gr-file, .gr-audio {
+  background-color: #ffffff !important; 
+  border-radius: var(--md-border-radius) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 8px !important;
+}
+
+.gr-textbox textarea {
+  min-height: 100px !important;
+  background-color: #fff !important;
+  border: 1px solid #ccc !important;
+  border-radius: var(--md-border-radius) !important;
+}
+
+/* 调整按钮风格，维持 Material 风格 */
+button, .gr-button {
+  background-color: var(--md-primary) !important;
+  color: var(--md-text-on-primary) !important;
+  border: none !important;
+  border-radius: var(--md-border-radius) !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--md-transition), box-shadow var(--md-transition);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  padding: 0.6em 1.2em !important;
+}
+button:hover, .gr-button:hover {
+  background-color: var(--md-primary-dark) !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* 让 Tab 标题有更明显的选中状态 */
+.tabs button {
+  background: transparent !important;
+  color: var(--md-secondary) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  font-weight: 500 !important;
+  padding: 0.6em 1.2em !important;
+  transition: background-color var(--md-transition), color var(--md-transition);
+}
+.tabs button.selected {
+  color: var(--md-primary) !important;
+  border-bottom: 3px solid var(--md-primary) !important;
+  background-color: transparent !important;
+}
+
+/* Footer / share 按钮区域居中 */
+.footer, .share-link-container {
+  text-align: center !important;
+  margin-top: 20px;
+}
+
 
 """
 
