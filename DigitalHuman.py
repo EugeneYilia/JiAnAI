@@ -140,6 +140,7 @@ button:active, .gr-button:active {
 }
 """
 
+
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -152,11 +153,13 @@ def safe_register_all_globals():
         "TTS.vocoder.models.wavernn": {"Wavernn"},
     })
 
+
 safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
+
 
 def download_models():
     model_list = [
@@ -166,7 +169,8 @@ def download_models():
         ("wav2lip.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/wav2lip.pth", "checkpoints"),
         ("mapping_00109-model.pth.tar",
          "https://huggingface.co/guoyww/facevid2vid/resolve/main/mapping_00109-model.pth.tar", "checkpoints"),
-        ("parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
+        (
+        "parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
         ("GFPGANv1.4.pth", "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth",
          "checkpoints/gfpgan")
     ]
@@ -184,11 +188,13 @@ def download_models():
                     f.write(chunk)
         print(f"[完成] {dest}")
 
+
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
+
 
 def transcribe_audio(audio_file):
     if not audio_file:
@@ -216,6 +222,7 @@ def transcribe_audio(audio_file):
         return simplified
     except Exception as e:
         raise e
+
 
 def generate_video(image_path, audio_path):
     if not image_path or not os.path.exists(image_path):
@@ -248,6 +255,7 @@ def generate_video(image_path, audio_path):
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
+
 def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
@@ -266,6 +274,7 @@ def save_recognition_history(text_raw, text_simplified):
     doc.add_paragraph(text_simplified)
     doc.save(filename_docx)
 
+
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
@@ -274,6 +283,7 @@ def export_recognition_zip():
             file_path = os.path.join(RECOGNIZED_DIR, filename)
             zipf.write(file_path, arcname=filename)
     return zip_path
+
 
 def search_history_by_question(query):
     hits = []
@@ -288,10 +298,16 @@ def search_history_by_question(query):
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
 
+
 demo_config = gr.Blocks(css=material_css)
 
 with demo_config as demo:
-    gr.Markdown("## 🎤 吉安智能体")
+    # 将“吉安智能体”换成自定义 HTML，以醒目颜色和加粗居中显示
+    gr.Markdown("""
+    <h2 style="text-align:center; color:#ffcc00; font-weight:bold; margin-bottom:0.5em;">
+    🎤 吉安智能体
+    </h2>
+    """)
 
     with gr.Tab("文字转语音"):
         text_input = gr.Textbox(label="输入文字")
@@ -307,10 +323,13 @@ with demo_config as demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
+
         def check_audio_upload_status(audio_file):
-            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048 and audio_file.endswith('.wav'):
+            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(
+                    audio_file) > 2048 and audio_file.endswith('.wav'):
                 return "✅ 音频上传完成"
             return "⚠️ 音频文件过小或上传失败"
+
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
@@ -318,11 +337,13 @@ with demo_config as demo:
     with gr.Tab("数字人动画"):
         with gr.Row():
             with gr.Column():
-                image_input = gr.File(label="上传头像 (PNG/JPG)", file_types=[".png", ".jpg", ".jpeg"], interactive=True)
+                image_input = gr.File(label="上传头像 (PNG/JPG)", file_types=[".png", ".jpg", ".jpeg"],
+                                      interactive=True)
                 image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1,
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
+
 
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
@@ -330,6 +351,7 @@ with demo_config as demo:
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False)
                     return gr.update(value=image_file, visible=True)
+
 
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
@@ -345,19 +367,25 @@ with demo_config as demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
+
         def check_image_upload_status(image_file):
-            if isinstance(image_file, str) and os.path.exists(image_file) and os.path.getsize(image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+            if isinstance(image_file, str) and os.path.exists(image_file) and os.path.getsize(
+                    image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 return "✅ 头像上传完成"
             return "⚠️ 头像文件过小或上传失败"
+
 
         def check_audio_upload_status_generic(audio_file):
             if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048:
                 return "✅ 音频上传完成"
             return "⚠️ 音频文件过小或上传失败"
 
-        image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input, outputs=image_name)
+
+        image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
+                           outputs=image_name)
         image_input.change(fn=check_image_upload_status, inputs=image_input, outputs=image_status)
-        driven_audio_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=driven_audio_input, outputs=audio_name)
+        driven_audio_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=driven_audio_input,
+                                  outputs=audio_name)
         driven_audio_input.change(fn=check_audio_upload_status_generic, inputs=driven_audio_input, outputs=audio_status)
 
         generate_video_btn.click(fn=generate_video, inputs=[image_input, driven_audio_input], outputs=video_output)
