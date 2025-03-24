@@ -23,7 +23,6 @@ jieba.setLogLevel(jieba.logging.WARN)
 
 RECOGNIZED_DIR = "recognized"
 os.makedirs(RECOGNIZED_DIR, exist_ok=True)
-
 RECOGNIZED_EXPORT_DIR = "recognized_export"
 os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
@@ -32,7 +31,7 @@ add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
 ############################################################################
-# 将背景图片 URL 写成单行，并使用 no-repeat center center
+# 更新后的 CSS：背景图片与渐变、主要容器不透明度及按钮/页签点击响应效果
 ############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
@@ -49,36 +48,31 @@ material_css = """
   --md-transition: 0.3s ease;
 }
 
-/* 整个页面的背景：底层是固定(fixed)的图片 + 半透明渐变 */
+/* 背景：底层固定图片 + 半透明渐变 */
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
-
-  /* 多层背景：先图片，后渐变。都用 cover 覆盖屏幕，不随内容滚动 */
-  background:
-    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png")
-      no-repeat center center fixed,
-    linear-gradient(rgba(255,255,255,0.4), rgba(255,255,255,0.4)) /* 半透明 */
-      no-repeat fixed;
-
+  background: 
+    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") no-repeat center center fixed,
+    linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)) no-repeat fixed;
   background-size: cover, cover;
   background-color: transparent !important;
 }
 
-/* 让 Tabs、Box 等主要容器有更高的不透明度背景，以便文字清晰 */
+/* 主要容器使用较高不透明度背景 */
 .tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
-  background-color: rgba(255, 255, 255, 0.9) !important; /* 0.9 不透明度 */
+  background-color: rgba(255, 255, 255, 0.95) !important;
   border-radius: var(--md-border-radius) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  margin-top: 8px !important; /* 让容器与背景分离一点 */
-  padding: 12px !important;   /* 内间距让文字更舒展 */
+  margin-top: 8px !important;
+  padding: 12px !important;
 }
 
-/* 输入区域、文件上传、音频组件等，底色稍微提高亮度 */
+/* 输入区域、文件上传、音频组件等采用纯白背景 */
 .gr-textbox, .gr-file, .gr-audio {
-  background-color: #ffffff !important; 
+  background-color: #ffffff !important;
   border-radius: var(--md-border-radius) !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   padding: 8px !important;
@@ -91,7 +85,7 @@ html, body, .gradio-container {
   border-radius: var(--md-border-radius) !important;
 }
 
-/* 调整按钮风格，维持 Material 风格 */
+/* 按钮风格及点击响应效果 */
 button, .gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
@@ -99,7 +93,7 @@ button, .gr-button {
   border-radius: var(--md-border-radius) !important;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--md-transition), box-shadow var(--md-transition);
+  transition: background-color var(--md-transition), box-shadow var(--md-transition), transform 0.1s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.15);
   padding: 0.6em 1.2em !important;
 }
@@ -107,8 +101,11 @@ button:hover, .gr-button:hover {
   background-color: var(--md-primary-dark) !important;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
+button:active, .gr-button:active {
+  transform: scale(0.98);
+}
 
-/* 让 Tab 标题有更明显的选中状态 */
+/* Tab 按钮样式及点击响应 */
 .tabs button {
   background: transparent !important;
   color: var(--md-secondary) !important;
@@ -117,21 +114,22 @@ button:hover, .gr-button:hover {
   border-radius: 0 !important;
   font-weight: 500 !important;
   padding: 0.6em 1.2em !important;
-  transition: background-color var(--md-transition), color var(--md-transition);
+  transition: background-color var(--md-transition), color var(--md-transition), transform 0.1s ease;
 }
 .tabs button.selected {
   color: var(--md-primary) !important;
   border-bottom: 3px solid var(--md-primary) !important;
   background-color: transparent !important;
 }
+.tabs button:active {
+  transform: scale(0.98);
+}
 
-/* Footer / share 按钮区域居中 */
+/* Footer / share 区域 */
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
 }
-
-
 """
 
 def safe_register_all_globals():
@@ -239,7 +237,6 @@ def generate_video(image_path, audio_path):
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         return f"生成失败：\n命令：{' '.join(e.cmd)}\n返回码：{e.returncode}"
-
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
@@ -247,12 +244,10 @@ def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
     filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
-
     with open(filename_txt, "w", encoding="utf-8") as f:
         f.write(f"[识别时间] {timestamp}\n")
         f.write(f"[原始文本]\n{text_raw}\n\n")
         f.write(f"[简体结果]\n{text_simplified}\n")
-
     from docx import Document
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
@@ -367,12 +362,10 @@ with demo_config as demo:
 
     with gr.Tab("识别历史"):
         gr.Markdown("### 📄 导出历史 / 查询内容")
-
         with gr.Row():
             export_btn = gr.Button("📦 导出 ZIP")
             export_file = gr.File(label="下载识别记录压缩包")
             export_btn.click(fn=export_recognition_zip, outputs=export_file)
-
         with gr.Row():
             query_input = gr.Textbox(label="输入关键词或内容问题")
             query_btn = gr.Button("🔍 查询记录")
