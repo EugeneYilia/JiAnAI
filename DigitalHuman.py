@@ -23,6 +23,7 @@ jieba.setLogLevel(jieba.logging.WARN)
 
 RECOGNIZED_DIR = "recognized"
 os.makedirs(RECOGNIZED_DIR, exist_ok=True)
+
 RECOGNIZED_EXPORT_DIR = "recognized_export"
 os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
@@ -30,8 +31,12 @@ os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
+############################################################################
+# 将背景图片 URL 写成单行，并使用 no-repeat center center
+############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
+
 :root {
   --md-primary: #1976d2;
   --md-primary-dark: #1565c0;
@@ -43,23 +48,28 @@ material_css = """
   --md-border-radius: 8px;
   --md-transition: 0.3s ease;
 }
+
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
-  background: 
-    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.jpg") no-repeat center 120px,
-    linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
-  background-size: 240px, cover;
+
+  /* 单行写法, 改成 no-repeat center center 避免定位异常 */
+  background: url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.jpg") 
+              no-repeat center center,
+              linear-gradient(150deg, #ffffff, var(--md-background)) no-repeat fixed;
+  background-size: cover, cover;
   background-color: transparent !important;
 }
+
 h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   margin-top: 1.2em;
   margin-bottom: 0.8em;
   color: var(--md-secondary);
 }
+
 h2 {
   text-align: center;
   position: relative;
@@ -73,6 +83,7 @@ h2::after {
   margin: 8px auto 0 auto;
   border-radius: 2px;
 }
+
 button, .gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
@@ -88,6 +99,7 @@ button:hover, .gr-button:hover {
   background-color: var(--md-primary-dark) !important;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
+
 .tabs, .tabitem {
   background-color: rgba(255, 255, 255, 0.8) !important;
   border-radius: var(--md-border-radius);
@@ -95,6 +107,7 @@ button:hover, .gr-button:hover {
   padding: 16px !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+
 .tabs button {
   background: transparent !important;
   color: var(--md-secondary) !important;
@@ -110,6 +123,7 @@ button:hover, .gr-button:hover {
   border-bottom: 3px solid var(--md-primary) !important;
   background-color: transparent !important;
 }
+
 textarea, input[type="text"], input[type="file"], .gr-textbox, .gr-file, .gr-textbox textarea {
   border: 1px solid #ccc !important;
   border-radius: var(--md-border-radius) !important;
@@ -122,6 +136,7 @@ textarea, input[type="text"], input[type="file"], .gr-textbox, .gr-file, .gr-tex
 textarea:focus, input[type="text"]:focus, .gr-textbox textarea:focus {
   box-shadow: 0 0 0 2px rgba(25,118,210,0.2);
 }
+
 .row, .gr-row {
   gap: 16px !important;
   margin-bottom: 8px !important;
@@ -129,9 +144,11 @@ textarea:focus, input[type="text"]:focus, .gr-textbox textarea:focus {
 .column, .gr-column {
   gap: 16px !important;
 }
+
 .gr-box, .gr-group, .gr-row, .gr-column, .tabitem {
   border-radius: var(--md-border-radius) !important;
 }
+
 audio, video {
   border-radius: var(--md-border-radius) !important;
   outline: none;
@@ -139,30 +156,42 @@ audio, video {
   margin-top: 8px;
   margin-bottom: 8px;
 }
+
 .gr-textbox, .gr-file, .gr-audio {
   background-color: var(--md-surface) !important;
   border-radius: var(--md-border-radius) !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   padding: 8px !important;
 }
+
 .gr-textbox textarea {
   min-height: 100px !important;
 }
+
 .copy-icon {
   margin-left: 8px !important;
 }
+
 label, .label, p, span {
   color: var(--md-text) !important;
 }
+
 .gr-video video {
   max-height: 360px;
   width: auto;
   margin: 0 auto;
   display: block;
 }
+
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
+}
+
+body, html, .gradio-container {
+    border: 10px solid red !important;
+    color: red !important;
+    background: #eee !important;
 }
 """
 
@@ -271,6 +300,7 @@ def generate_video(image_path, audio_path):
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         return f"生成失败：\n命令：{' '.join(e.cmd)}\n返回码：{e.returncode}"
+
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
@@ -278,10 +308,12 @@ def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
     filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
+
     with open(filename_txt, "w", encoding="utf-8") as f:
         f.write(f"[识别时间] {timestamp}\n")
         f.write(f"[原始文本]\n{text_raw}\n\n")
         f.write(f"[简体结果]\n{text_simplified}\n")
+
     from docx import Document
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
@@ -318,71 +350,94 @@ demo_config = gr.Blocks(css=material_css)
 
 with demo_config as demo:
     gr.Markdown("## 🎤 吉安智能体")
+
     with gr.Tab("文字转语音"):
         text_input = gr.Textbox(label="输入文字")
         generate_btn = gr.Button("🎧 合成语音")
         output_audio = gr.Audio(label="语音文件", type="filepath", interactive=True)
         generate_btn.click(fn=generate_speech, inputs=text_input, outputs=output_audio)
+
     with gr.Tab("语音转文字"):
         with gr.Row():
             audio_input = gr.File(label="上传语音 (仅限 WAV 格式)", file_types=[".wav"], interactive=True)
-            upload_status = gr.Textbox(label="语音上传状态", interactive=False, max_lines=1, container=True, show_copy_button=True)
+            upload_status = gr.Textbox(label="语音上传状态", interactive=False, max_lines=1,
+                                       container=True, show_copy_button=True)
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
+
         def check_audio_upload_status(audio_file):
             if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048 and audio_file.endswith('.wav'):
                 return "✅ 音频上传完成"
             return "⚠️ 音频文件过小或上传失败"
+
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
+
     with gr.Tab("数字人动画"):
         with gr.Row():
             with gr.Column():
                 image_input = gr.File(label="上传头像 (PNG/JPG)", file_types=[".png", ".jpg", ".jpeg"], interactive=True)
                 image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
-                image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1, container=True, show_copy_button=True)
+                image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1,
+                                          container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
+
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
                         return gr.update(visible=False)
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False)
                     return gr.update(value=image_file, visible=True)
+
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
+
         with gr.Row():
             with gr.Column():
-                driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True, show_label=True, sources=["upload"], format="wav")
+                driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath",
+                                              interactive=True, show_label=True,
+                                              sources=["upload"], format="wav")
                 audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
-                audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1, container=True, show_copy_button=True)
+                audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1,
+                                          container=True, show_copy_button=True)
+
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
+
         def check_image_upload_status(image_file):
             if isinstance(image_file, str) and os.path.exists(image_file) and os.path.getsize(image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 return "✅ 头像上传完成"
             return "⚠️ 头像文件过小或上传失败"
+
         def check_audio_upload_status_generic(audio_file):
             if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048:
                 return "✅ 音频上传完成"
             return "⚠️ 音频文件过小或上传失败"
+
         image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input, outputs=image_name)
         image_input.change(fn=check_image_upload_status, inputs=image_input, outputs=image_status)
         driven_audio_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=driven_audio_input, outputs=audio_name)
         driven_audio_input.change(fn=check_audio_upload_status_generic, inputs=driven_audio_input, outputs=audio_status)
+
         generate_video_btn.click(fn=generate_video, inputs=[image_input, driven_audio_input], outputs=video_output)
+
     with gr.Tab("模型下载"):
         gr.Markdown("### 🧩 首次使用请点击下载 SadTalker 模型")
         download_btn = gr.Button("📥 下载模型")
         download_output = gr.Textbox(label="状态输出")
         download_btn.click(fn=download_models, outputs=download_output)
+
     with gr.Tab("识别历史"):
         gr.Markdown("### 📄 导出历史 / 查询内容")
+
         with gr.Row():
             export_btn = gr.Button("📦 导出 ZIP")
             export_file = gr.File(label="下载识别记录压缩包")
             export_btn.click(fn=export_recognition_zip, outputs=export_file)
+
         with gr.Row():
             query_input = gr.Textbox(label="输入关键词或内容问题")
             query_btn = gr.Button("🔍 查询记录")
             query_result = gr.Textbox(label="查询结果", lines=8)
             query_btn.click(fn=search_history_by_question, inputs=query_input, outputs=query_result)
+
 demo.launch(share=False)
