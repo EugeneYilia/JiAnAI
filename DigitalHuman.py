@@ -33,12 +33,12 @@ cc = OpenCC('t2s')
 # 更新后的 CSS：
 # 1. 强制 html 始终显示滚动条，防止切换页签时内容区域宽度变化导致背景图片水平移动。
 # 2. 背景部分：
-#    - 最底层采用淡黄色羊皮纸色 (#f9e4c8) 作为基础色；
-#    - 叠加一层径向渐变，增加真实纸张质感；
-#    - 再叠加一层半透明白色渐变；
+#    - 底层使用更浓郁的羊皮纸色 (#f6e2b3) 作为基础色，
+#    - 叠加一层细微的重复线性渐变，模拟纸张纹理，
+#    - 再叠加一层半透明白色渐变，
 #    - 最上层加载远程 freemasonry.png。
-#    如果远程图片加载失败，则只显示底层的羊皮纸色及渐变效果。
-# 3. 主要内容容器背景设为 70% 不透明，文字清晰。
+#    如果远程图片加载失败，则只显示底层的羊皮纸色、纹理和渐变效果。
+# 3. 主要内容容器背景设为 70% 不透明。
 # 4. 增加按钮和页签点击时的缩放响应效果。
 ############################################################################
 material_css = """
@@ -59,10 +59,10 @@ html {
 }
 
 /* 背景部分：
-   - 底层使用暖色羊皮纸色 (#f9e4c8)
-   - 叠加径向渐变，制造纸张纹理效果
-   - 再叠加一层半透明白色渐变
-   - 最上层加载远程背景图片
+   1. 底层采用浓郁的羊皮纸色 (#f6e2b3)
+   2. 叠加一层细微的重复线性渐变（45deg，模拟纸张纹理）
+   3. 再叠加一层半透明白色渐变
+   4. 最上层加载远程背景图片（如果加载失败，则只显示前几层效果）
 */
 html, body, .gradio-container {
   margin: 0;
@@ -70,13 +70,13 @@ html, body, .gradio-container {
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
 
-  background-color: #f9e4c8 !important;
+  background-color: #f6e2b3 !important; /* 羊皮纸基础色 */
   background-image:
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.25) 0%, rgba(249,228,198,0.85) 65%, #f9e4c8 100%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.03), rgba(0,0,0,0.03) 1px, transparent 1px, transparent 8px),
     linear-gradient(rgba(255,255,255,0.35), rgba(255,255,255,0.35)),
     url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png");
-  background-size: cover, cover, cover;
-  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: auto, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat;
   background-position: center, center, center;
   background-attachment: fixed, fixed, fixed;
 }
