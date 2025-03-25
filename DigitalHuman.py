@@ -20,11 +20,13 @@ from torch.serialization import add_safe_globals
 
 from utils.CutVoice import trim_tail_by_energy_and_gradient
 
+# --------------------------------------------------------------------------
 # 忽略部分警告
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 jieba.setLogLevel(jieba.logging.WARN)
 
+# --------------------------------------------------------------------------
 # 初始化必要的文件夹
 UPLOADS_DIR = "uploads"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -34,21 +36,47 @@ os.makedirs(RECOGNIZED_DIR, exist_ok=True)
 RECOGNIZED_EXPORT_DIR = "recognized_export"
 os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
-# 合并日志记录器：用于记录上传操作
-upload_logger = logging.getLogger("upload_logger")
-upload_logger.setLevel(logging.INFO)
-# 将日志写入 UPLOADS_DIR 下的 upload.log 文件
+# --------------------------------------------------------------------------
+# 日志器设置 - 在脚本/主入口处执行
+# 1) 清空已有 Handler，确保不会重复添加
+# 2) 设置 propagate=False
+# 3) 同时对 "asyncio" logger 也设置 propagate=False 并加过滤器
+# --------------------------------------------------------------------------
+app_logger = logging.getLogger("app_logger")
+app_logger.setLevel(logging.INFO)
+
+# >>> 先清空已有 Handler，避免重复添加导致多条日志 <<<
+while app_logger.handlers:
+    app_logger.handlers.pop()
+
+# >>> 再添加我们需要的 FileHandler <<<
 fh = logging.FileHandler(os.path.join(UPLOADS_DIR, "upload.log"), encoding="utf-8")
 fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-upload_logger.addHandler(fh)
+app_logger.addHandler(fh)
 
+# 禁止日志向上级传播，避免重复输出
+app_logger.propagate = False
+
+def filter_connection_reset_error(record: logging.LogRecord) -> bool:
+    msg = record.getMessage()
+    if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
+        return False
+    return True
+
+app_logger.addFilter(filter_connection_reset_error)
+
+# >>> 同样对 asyncio logger 设置 propagate=False，并添加过滤器 <<<
+asyncio_logger = logging.getLogger("asyncio")
+asyncio_logger.propagate = False
+asyncio_logger.addFilter(filter_connection_reset_error)
+
+# --------------------------------------------------------------------------
 # 注册 RAdam 类及初始化 OpenCC
 add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
-############################################################################
+# --------------------------------------------------------------------------
 # CSS 样式设置
-############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
 
@@ -138,9 +166,8 @@ html, body, .gradio-container {
 }
 """
 
-############################################################################
+# --------------------------------------------------------------------------
 # 全局设置及初始化 TTS/ASR
-############################################################################
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -157,11 +184,11 @@ safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
+import whisper
 asr_model = whisper.load_model("large")
 
-############################################################################
+# --------------------------------------------------------------------------
 # 辅助函数：格式化文件大小
-############################################################################
 def format_file_size(file_path):
     size_bytes = os.path.getsize(file_path)
     if size_bytes < 1024 * 1024:
@@ -171,9 +198,8 @@ def format_file_size(file_path):
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
 
-############################################################################
+# --------------------------------------------------------------------------
 # 核心功能函数
-############################################################################
 def download_models():
     model_list = [
         ("shape_predictor_68_face_landmarks.dat",
@@ -215,10 +241,11 @@ def move_file_to_uploads(original_path, file_type="unknown"):
     try:
         shutil.move(original_path, new_path)
         size_kb = os.path.getsize(new_path) / 1024
-        upload_logger.info(f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)")
+        # 关键：只使用我们定义的 app_logger
+        app_logger.info(f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)")
         return new_path
     except Exception as e:
-        upload_logger.error(f"move_file_to_uploads error: {e}")
+        app_logger.error(f"move_file_to_uploads error: {e}")
         return original_path
 
 def generate_speech(text):
@@ -240,16 +267,19 @@ def transcribe_audio(audio_file):
             _ = sf.info(audio_file)
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
+
         # 移动文件到 /uploads/
         new_path = move_file_to_uploads(audio_file, file_type="audio")
         size_str = format_file_size(new_path)
         result = asr_model.transcribe(new_path, language="zh")
+
         simplified = ""
         for char in result["text"]:
             if char in "。！？；，、,.!?;:":
                 simplified += char
             else:
                 simplified += cc.convert(char)
+
         save_recognition_history(result["text"], simplified)
         return f"识别结果（文件大小: {size_str}）：\n{simplified}"
     except Exception as e:
@@ -264,9 +294,11 @@ def generate_video(image_path, audio_path):
         return "⚠️ 没有上传音频文件或文件不存在"
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
+
     # 将图像和音频移动到 /uploads/
     new_image_path = move_file_to_uploads(image_path, file_type="image")
     new_audio_path = move_file_to_uploads(audio_path, file_type="audio")
+
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
     launcher_path = os.path.abspath("sadtalker/launcher.py")
@@ -283,6 +315,7 @@ def generate_video(image_path, audio_path):
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         return f"生成失败：\n命令：{' '.join(e.cmd)}\n返回码：{e.returncode}"
+
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
@@ -290,10 +323,12 @@ def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
     filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
+
     with open(filename_txt, "w", encoding="utf-8") as f:
         f.write(f"[识别时间] {timestamp}\n")
         f.write(f"[原始文本]\n{text_raw}\n\n")
         f.write(f"[简体结果]\n{text_simplified}\n")
+
     from docx import Document
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
@@ -391,7 +426,6 @@ with demo:
 
         with gr.Row():
             with gr.Column():
-                # 恢复为默认组件（未修改）
                 driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True)
                 audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
                 audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1,
@@ -450,4 +484,6 @@ with demo:
             query_btn.click(fn=search_history_by_question, inputs=query_input, outputs=query_result)
 
 if __name__ == "__main__":
+    # 如果你是使用 python xxx.py 的方式运行，则此处只执行一次
+    # 如果你在 Gradio 中使用热重载，并且多次加载同一脚本，则需确保只执行一次日志初始化
     demo.launch()
