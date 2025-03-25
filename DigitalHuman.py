@@ -33,12 +33,11 @@ cc = OpenCC('t2s')
 # 更新后的 CSS：
 # 1. 强制 html 始终显示滚动条，防止切换页签时内容区域宽度变化导致背景图片水平移动。
 # 2. 背景部分：
-#    - 底层使用更浓郁的羊皮纸色 (#f6e2b3) 作为基础色，
-#    - 叠加一层细微的重复线性渐变，模拟纸张纹理，
-#    - 再叠加一层半透明白色渐变，
-#    - 最上层加载远程 freemasonry.png。
-#    如果远程图片加载失败，则只显示底层的羊皮纸色、纹理和渐变效果。
-# 3. 主要内容容器背景设为 70% 不透明。
+#    - 最底层使用浓郁的羊皮纸色作为基础（#f6e2b3），
+#    - 叠加细微的重复线性渐变（模拟纸张纹理），
+#    - 再叠加半透明白色渐变，
+#    - 最上层加载远程 freemasonry.png；如果加载失败，则只显示前几层效果。
+# 3. 主要内容容器背景设置为 70% 不透明。
 # 4. 增加按钮和页签点击时的缩放响应效果。
 ############################################################################
 material_css = """
@@ -60,9 +59,9 @@ html {
 
 /* 背景部分：
    1. 底层采用浓郁的羊皮纸色 (#f6e2b3)
-   2. 叠加一层细微的重复线性渐变（45deg，模拟纸张纹理）
-   3. 再叠加一层半透明白色渐变
-   4. 最上层加载远程背景图片（如果加载失败，则只显示前几层效果）
+   2. 叠加细微重复线性渐变（45deg，模拟纸张纹理）
+   3. 再叠加半透明白色渐变
+   4. 最上层加载远程背景图片（若加载失败，则只显示前几层效果）
 */
 html, body, .gradio-container {
   margin: 0;
@@ -287,7 +286,7 @@ def export_recognition_zip():
 
 def search_history_by_question(query):
     hits = []
-    for filename in os.listdir(RECOGNIZED_DIR):
+    for filename in os.path.listdir(RECOGNIZED_DIR):
         path = os.path.join(RECOGNIZED_DIR, filename)
         if filename.endswith(".txt"):
             with open(path, "r", encoding="utf-8") as f:
@@ -357,9 +356,8 @@ with demo:
 
         with gr.Row():
             with gr.Column():
-                driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath",
-                                              interactive=True, show_label=True,
-                                              sources=["upload"], format="wav")
+                # 将数字人动画的音频上传组件恢复为默认组件，避免Content-Length错误
+                driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True)
                 audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
                 audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1,
                                           container=True, show_copy_button=True)
@@ -400,12 +398,10 @@ with demo:
 
     with gr.Tab("识别历史"):
         gr.Markdown("### 📄 导出历史 / 查询内容")
-
         with gr.Row():
             export_btn = gr.Button("📦 导出 ZIP")
             export_file = gr.File(label="下载识别记录压缩包")
             export_btn.click(fn=export_recognition_zip, outputs=export_file)
-
         with gr.Row():
             query_input = gr.Textbox(label="输入关键词或内容问题")
             query_btn = gr.Button("🔍 查询记录")
