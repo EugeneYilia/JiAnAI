@@ -9,6 +9,8 @@ import jieba
 import requests
 import torch
 import whisper
+import logging
+
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
 from opencc import OpenCC
@@ -149,6 +151,19 @@ MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
 
+def filter_connection_reset_error(record: logging.LogRecord) -> bool:
+    """
+    如果日志消息中包含 "An existing connection was forcibly closed by the remote host"
+    或者出现 ConnectionResetError，则返回 False，不让其输出。
+    其他情况返回 True，正常输出。
+    """
+    msg = record.getMessage()
+    if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
+        return False
+    return True
+
+logger_asyncio = logging.getLogger("asyncio")
+logger_asyncio.addFilter(filter_connection_reset_error)
 
 ############################################################################
 # 辅助函数：格式化文件大小
