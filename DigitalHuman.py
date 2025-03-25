@@ -4,6 +4,7 @@ import warnings
 import zipfile
 from datetime import datetime
 import logging
+import shutil
 
 import gradio as gr
 import jieba
@@ -11,7 +12,7 @@ import requests
 import torch
 import whisper
 
-from PIL import Image as PILImage  # 新增：用于获取图像分辨率
+from PIL import Image as PILImage  # 用于获取图像分辨率
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
 from opencc import OpenCC
@@ -22,6 +23,19 @@ from utils.CutVoice import trim_tail_by_energy_and_gradient
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 jieba.setLogLevel(jieba.logging.WARN)
+
+# 初始化上传文件夹
+UPLOADS_DIR = "uploads"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# 设置日志记录器，用于记录上传操作
+logger = logging.getLogger("upload_logger")
+logger.setLevel(logging.INFO)
+# 日志文件：upload.log
+fh = logging.FileHandler("uploads/upload.log", encoding="utf-8")
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 RECOGNIZED_DIR = "recognized"
 os.makedirs(RECOGNIZED_DIR, exist_ok=True)
@@ -62,7 +76,7 @@ html {
 
 /* 背景部分：
    1. 底层采用浓郁的羊皮纸色 (#f6e2b3)
-   2. 叠加细微的重复线性渐变（45deg，模拟纸张纹理）
+   2. 叠加细微重复线性渐变（45deg，模拟纸张纹理）
    3. 再叠加半透明白色渐变
    4. 最上层加载远程背景图片（若加载失败，则只显示前几层效果）
 */
@@ -156,19 +170,46 @@ def safe_register_all_globals():
 
 safe_register_all_globals()
 
-import PIL
-from PIL import Image as PILImage  # 用于获取图像分辨率
-from datetime import datetime
-
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
-import whisper
 asr_model = whisper.load_model("large")
 
-RECOGNIZED_DIR = "recognized"
-RECOGNIZED_EXPORT_DIR = "recognized_export"
-os.makedirs(RECOGNIZED_DIR, exist_ok=True)
-os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
+# 新增：统一将上传文件移动到 /uploads/ 并记录日志
+UPLOADS_DIR = "uploads"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+upload_logger = logging.getLogger("upload_logger")
+upload_logger.setLevel(logging.INFO)
+fh = logging.FileHandler("upload.log", encoding="utf-8")
+fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+upload_logger.addHandler(fh)
+
+def move_file_to_uploads(original_path, file_type="unknown"):
+    """
+    将临时文件移动到 /uploads/ 文件夹并重命名（带时间戳），返回新路径。
+    同时写入 upload.log 记录上传信息。
+    """
+    if not original_path or not os.path.exists(original_path):
+        return original_path
+
+    # 取文件名和扩展名
+    base_name = os.path.basename(original_path)
+    ext = os.path.splitext(base_name)[1]
+    # 新文件名：20231020_153045_image.png
+    new_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_type}{ext}"
+    new_path = os.path.join(UPLOADS_DIR, new_name)
+
+    try:
+        shutil.move(original_path, new_path)
+        size_kb = os.path.getsize(new_path) / 1024
+        upload_logger.info(
+            f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)"
+        )
+        return new_path
+    except Exception as e:
+        upload_logger.error(f"move_file_to_uploads error: {e}")
+        return original_path
+
 
 def format_file_size(file_path):
     size_bytes = os.path.getsize(file_path)
@@ -178,6 +219,11 @@ def format_file_size(file_path):
     else:
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
+
+RECOGNIZED_DIR = "recognized"
+RECOGNIZED_EXPORT_DIR = "recognized_export"
+os.makedirs(RECOGNIZED_DIR, exist_ok=True)
+os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
 def download_models():
     model_list = [
@@ -224,8 +270,10 @@ def transcribe_audio(audio_file):
             _ = sf.info(audio_file)
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
-        size_str = format_file_size(audio_file)
-        result = asr_model.transcribe(audio_file, language="zh")
+        # 在此处移动文件到 /uploads/
+        new_path = move_file_to_uploads(audio_file, file_type="audio")
+        size_str = format_file_size(new_path)
+        result = asr_model.transcribe(new_path, language="zh")
         from opencc import OpenCC
         cc = OpenCC('t2s')
         simplified = ""
@@ -249,13 +297,17 @@ def generate_video(image_path, audio_path):
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
 
+    # 将图像、音频都移动到 /uploads/
+    new_image_path = move_file_to_uploads(image_path, file_type="image")
+    new_audio_path = move_file_to_uploads(audio_path, file_type="audio")
+
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
     launcher_path = os.path.abspath("sadtalker/launcher.py")
     cmd = [
         "python", launcher_path,
-        "--driven_audio", audio_path,
-        "--source_image", image_path,
+        "--driven_audio", new_audio_path,
+        "--source_image", new_image_path,
         "--result_dir", output_dir,
         "--preprocess", "full",
         "--still",
@@ -355,20 +407,16 @@ with demo:
                 image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1,
                                           container=True, show_copy_button=True)
-                # 在这里预览图像并显示分辨率 + 时间戳
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
-                        return gr.update(visible=False, label="")  # 移除时不显示任何信息
+                        return gr.update(visible=False, label="")
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False, label="")
-                    # 计算图像分辨率
                     im = PILImage.open(image_file)
                     w, h = im.size
-                    # 获取当前时间戳
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    # 将图像文件设置到 value，并将 label 设置为 分辨率 + 时间戳
                     return gr.update(
                         value=image_file,
                         visible=True,
