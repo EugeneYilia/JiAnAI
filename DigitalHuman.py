@@ -11,7 +11,6 @@ import torch
 import whisper
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
-from fastapi.staticfiles import StaticFiles
 from opencc import OpenCC
 from torch.serialization import add_safe_globals
 
