@@ -93,17 +93,6 @@ html, body, .gradio-container {
 }
 
 /* 自定义按钮样式，仅针对 .gr-button */
-.gr-button {
-  background-color: var(--md-primary) !important;
-  color: var(--md-text-on-primary) !important;
-  border: none !important;
-  border-radius: var(--md-border-radius) !important;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--md-transition), box-shadow var(--md-transition), transform 0.1s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-  padding: 0.6em 1.2em !important;
-}
 .gr-button:hover {
   background-color: var(--md-primary-dark) !important;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
@@ -113,16 +102,7 @@ html, body, .gradio-container {
 }
 
 /* Tab 按钮样式及点击响应 */
-.tabs button {
-  background: transparent !important;
-  color: var(--md-secondary) !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  font-weight: 500 !important;
-  padding: 0.6em 1.2em !important;
-  transition: background-color var(--md-transition), color var(--md-transition), transform 0.1s ease;
-}
+
 .tabs button.selected {
   color: var(--md-primary) !important;
   border-bottom: 3px solid var(--md-primary) !important;
@@ -136,21 +116,6 @@ html, body, .gradio-container {
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
-}
-
-/* 恢复音频控件默认外观，确保播放/暂停按钮显示 */
-.gr-audio audio {
-  appearance: auto !important;
-  -webkit-appearance: media-controls !important;
-  background: transparent !important;
-}
-.gr-audio audio::-webkit-media-controls-panel {
-  background: transparent !important;
-}
-.gr-audio audio::-webkit-media-controls-play-button,
-.gr-audio audio::-webkit-media-controls-pause-button {
-  display: block !important;
-  opacity: 1 !important;
 }
 """
 
