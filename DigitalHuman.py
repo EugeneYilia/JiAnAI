@@ -20,42 +20,34 @@ from torch.serialization import add_safe_globals
 
 from utils.CutVoice import trim_tail_by_energy_and_gradient
 
+# 忽略部分警告
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 jieba.setLogLevel(jieba.logging.WARN)
 
-# 初始化上传文件夹
+# 初始化必要的文件夹
 UPLOADS_DIR = "uploads"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-# 设置日志记录器，用于记录上传操作
-logger = logging.getLogger("upload_logger")
-logger.setLevel(logging.INFO)
-# 日志文件：upload.log
-fh = logging.FileHandler("uploads/upload.log", encoding="utf-8")
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-fh.setFormatter(formatter)
-logger.addHandler(fh)
 
 RECOGNIZED_DIR = "recognized"
 os.makedirs(RECOGNIZED_DIR, exist_ok=True)
 RECOGNIZED_EXPORT_DIR = "recognized_export"
 os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
-# 注册 RAdam 类
+# 合并日志记录器：用于记录上传操作
+upload_logger = logging.getLogger("upload_logger")
+upload_logger.setLevel(logging.INFO)
+# 将日志写入 UPLOADS_DIR 下的 upload.log 文件
+fh = logging.FileHandler(os.path.join(UPLOADS_DIR, "upload.log"), encoding="utf-8")
+fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+upload_logger.addHandler(fh)
+
+# 注册 RAdam 类及初始化 OpenCC
 add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
 ############################################################################
-# 更新后的 CSS：
-# 1. 强制 html 始终显示滚动条，防止切换页签时内容区域宽度变化导致背景图片水平移动。
-# 2. 背景部分：
-#    - 最底层使用浓郁的羊皮纸色作为基础（#f6e2b3），
-#    - 叠加细微的重复线性渐变（模拟纸张纹理），
-#    - 再叠加半透明白色渐变，
-#    - 最上层加载远程 freemasonry.png；如果加载失败，则只显示前几层效果。
-# 3. 主要内容容器背景设置为 70% 不透明。
-# 4. 增加按钮和页签点击时的缩放响应效果。
+# CSS 样式设置
 ############################################################################
 material_css = """
 @import url('https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap');
@@ -86,7 +78,7 @@ html, body, .gradio-container {
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
 
-  background-color: #f6e2b3 !important; /* 羊皮纸基础色 */
+  background-color: #f6e2b3 !important;
   background-image:
     repeating-linear-gradient(45deg, rgba(0,0,0,0.03), rgba(0,0,0,0.03) 1px, transparent 1px, transparent 8px),
     linear-gradient(rgba(255,255,255,0.35), rgba(255,255,255,0.35)),
@@ -146,16 +138,9 @@ html, body, .gradio-container {
 }
 """
 
-def filter_connection_reset_error(record: logging.LogRecord) -> bool:
-    """如果日志消息中包含强制关闭连接等信息，则不输出"""
-    msg = record.getMessage()
-    if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
-        return False
-    return True
-
-logger_asyncio = logging.getLogger("asyncio")
-logger_asyncio.addFilter(filter_connection_reset_error)
-
+############################################################################
+# 全局设置及初始化 TTS/ASR
+############################################################################
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -174,43 +159,9 @@ MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
 
-# 新增：统一将上传文件移动到 /uploads/ 并记录日志
-UPLOADS_DIR = "uploads"
-os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-upload_logger = logging.getLogger("upload_logger")
-upload_logger.setLevel(logging.INFO)
-fh = logging.FileHandler("upload.log", encoding="utf-8")
-fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-upload_logger.addHandler(fh)
-
-def move_file_to_uploads(original_path, file_type="unknown"):
-    """
-    将临时文件移动到 /uploads/ 文件夹并重命名（带时间戳），返回新路径。
-    同时写入 upload.log 记录上传信息。
-    """
-    if not original_path or not os.path.exists(original_path):
-        return original_path
-
-    # 取文件名和扩展名
-    base_name = os.path.basename(original_path)
-    ext = os.path.splitext(base_name)[1]
-    # 新文件名：20231020_153045_image.png
-    new_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_type}{ext}"
-    new_path = os.path.join(UPLOADS_DIR, new_name)
-
-    try:
-        shutil.move(original_path, new_path)
-        size_kb = os.path.getsize(new_path) / 1024
-        upload_logger.info(
-            f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)"
-        )
-        return new_path
-    except Exception as e:
-        upload_logger.error(f"move_file_to_uploads error: {e}")
-        return original_path
-
-
+############################################################################
+# 辅助函数：格式化文件大小
+############################################################################
 def format_file_size(file_path):
     size_bytes = os.path.getsize(file_path)
     if size_bytes < 1024 * 1024:
@@ -220,11 +171,9 @@ def format_file_size(file_path):
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
 
-RECOGNIZED_DIR = "recognized"
-RECOGNIZED_EXPORT_DIR = "recognized_export"
-os.makedirs(RECOGNIZED_DIR, exist_ok=True)
-os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
-
+############################################################################
+# 核心功能函数
+############################################################################
 def download_models():
     model_list = [
         ("shape_predictor_68_face_landmarks.dat",
@@ -251,6 +200,27 @@ def download_models():
                     f.write(chunk)
         print(f"[完成] {dest}")
 
+def move_file_to_uploads(original_path, file_type="unknown"):
+    """
+    将临时文件移动到 /uploads/ 文件夹并重命名（带时间戳），返回新路径。
+    同时写入日志记录上传信息。
+    """
+    if not original_path or not os.path.exists(original_path):
+        return original_path
+
+    base_name = os.path.basename(original_path)
+    ext = os.path.splitext(base_name)[1]
+    new_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_type}{ext}"
+    new_path = os.path.join(UPLOADS_DIR, new_name)
+    try:
+        shutil.move(original_path, new_path)
+        size_kb = os.path.getsize(new_path) / 1024
+        upload_logger.info(f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)")
+        return new_path
+    except Exception as e:
+        upload_logger.error(f"move_file_to_uploads error: {e}")
+        return original_path
+
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
@@ -270,12 +240,10 @@ def transcribe_audio(audio_file):
             _ = sf.info(audio_file)
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
-        # 在此处移动文件到 /uploads/
+        # 移动文件到 /uploads/
         new_path = move_file_to_uploads(audio_file, file_type="audio")
         size_str = format_file_size(new_path)
         result = asr_model.transcribe(new_path, language="zh")
-        from opencc import OpenCC
-        cc = OpenCC('t2s')
         simplified = ""
         for char in result["text"]:
             if char in "。！？；，、,.!?;:":
@@ -296,11 +264,9 @@ def generate_video(image_path, audio_path):
         return "⚠️ 没有上传音频文件或文件不存在"
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
-
-    # 将图像、音频都移动到 /uploads/
+    # 将图像和音频移动到 /uploads/
     new_image_path = move_file_to_uploads(image_path, file_type="image")
     new_audio_path = move_file_to_uploads(audio_path, file_type="audio")
-
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
     launcher_path = os.path.abspath("sadtalker/launcher.py")
@@ -324,12 +290,10 @@ def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
     filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
-
     with open(filename_txt, "w", encoding="utf-8") as f:
         f.write(f"[识别时间] {timestamp}\n")
         f.write(f"[原始文本]\n{text_raw}\n\n")
         f.write(f"[简体结果]\n{text_simplified}\n")
-
     from docx import Document
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
@@ -342,7 +306,7 @@ def save_recognition_history(text_raw, text_simplified):
 
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
+    zip_path = os.path.join(RECOGNIZED_EXPORT_DIR, f"recognized_export_{timestamp}.zip")
     with zipfile.ZipFile(zip_path, 'w') as zipf:
         for filename in os.listdir(RECOGNIZED_DIR):
             file_path = os.path.join(RECOGNIZED_DIR, filename)
@@ -427,6 +391,7 @@ with demo:
 
         with gr.Row():
             with gr.Column():
+                # 恢复为默认组件（未修改）
                 driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True)
                 audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
                 audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1,
