@@ -289,7 +289,7 @@ demo = gr.Blocks(css=material_css)
 with demo:
     # 将“吉安智能体”换成自定义 HTML，以醒目颜色和加粗居中显示
     gr.Markdown("""
-    <h2 style="text-align:center; color:#ffcc00; font-weight:bold; margin-bottom:0.5em;">
+    <h2 style="text-align:center; color:#0abab5; font-weight:bold; margin-bottom:0.5em;">
     🎤 吉安智能体
     </h2>
     """)
