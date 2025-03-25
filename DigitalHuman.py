@@ -32,8 +32,13 @@ cc = OpenCC('t2s')
 ############################################################################
 # 更新后的 CSS：
 # 1. 强制 html 始终显示滚动条，防止切换页签时内容区域宽度变化导致背景图片水平移动。
-# 2. 背景部分：底层为固定背景图片 + 半透明白色渐变（透明度 0.3），使背景图片更明显。
-# 3. 主要内容容器背景透明度调整为 0.7，使背景图片更透出。
+# 2. 背景部分：
+#    - 最底层采用淡黄色羊皮纸色 (#f9e4c8) 作为基础色；
+#    - 叠加一层径向渐变，增加真实纸张质感；
+#    - 再叠加一层半透明白色渐变；
+#    - 最上层加载远程 freemasonry.png。
+#    如果远程图片加载失败，则只显示底层的羊皮纸色及渐变效果。
+# 3. 主要内容容器背景设为 70% 不透明，文字清晰。
 # 4. 增加按钮和页签点击时的缩放响应效果。
 ############################################################################
 material_css = """
@@ -53,13 +58,11 @@ html {
   --md-transition: 0.3s ease;
 }
 
-/* 
-   背景思路：
-   1) 最底层先用羊皮纸色 (#f8ecc2) 填充
-   2) 再叠加一层半透明白色渐变
-   3) 最顶层再叠加 freemasonry.png
-
-   如果 freemasonry.png 加载失败，就不会显示图片，浏览器会直接显示下层的羊皮纸色 + 半透明渐变。
+/* 背景部分：
+   - 底层使用暖色羊皮纸色 (#f9e4c8)
+   - 叠加径向渐变，制造纸张纹理效果
+   - 再叠加一层半透明白色渐变
+   - 最上层加载远程背景图片
 */
 html, body, .gradio-container {
   margin: 0;
@@ -67,18 +70,18 @@ html, body, .gradio-container {
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
 
-  /* 背景层：最底是羊皮纸色，其上是半透明渐变，其上是 freemasonry.png */
-  background-color: #f8ecc2 !important; /* 羊皮纸色 */
+  background-color: #f9e4c8 !important;
   background-image:
-    linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.25) 0%, rgba(249,228,198,0.85) 65%, #f9e4c8 100%),
+    linear-gradient(rgba(255,255,255,0.35), rgba(255,255,255,0.35)),
     url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png");
-  background-size: cover, cover;
-  background-repeat: no-repeat, no-repeat;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+  background-size: cover, cover, cover;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: center, center, center;
+  background-attachment: fixed, fixed, fixed;
 }
 
-/* 主要内容容器：70% 不透明度 */
+/* 主要内容容器背景：70% 不透明 */
 .tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
   background-color: rgba(255, 255, 255, 0.7) !important;
   border-radius: var(--md-border-radius) !important;
@@ -87,7 +90,7 @@ html, body, .gradio-container {
   padding: 12px !important;
 }
 
-/* 输入区、文件上传、音频组件：纯白背景 */
+/* 输入区域、文件上传、音频组件：纯白背景 */
 .gr-textbox, .gr-file, .gr-audio {
   background-color: #ffffff !important;
   border-radius: var(--md-border-radius) !important;
@@ -110,7 +113,7 @@ html, body, .gradio-container {
   transform: scale(0.98);
 }
 
-/* Tab 按钮选中状态 + 点击缩放 */
+/* Tab 按钮选中状态及点击响应 */
 .tabs button.selected {
   color: var(--md-primary) !important;
   border-bottom: 3px solid var(--md-primary) !important;
@@ -140,26 +143,27 @@ def safe_register_all_globals():
         "TTS.vocoder.models.wavernn": {"Wavernn"},
     })
 
+
 safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
 
+
 ############################################################################
-# 新增一个格式化文件大小的辅助函数
+# 辅助函数：格式化文件大小
 ############################################################################
 def format_file_size(file_path):
     """根据文件大小，自动转换为KB或MB，返回字符串."""
     size_bytes = os.path.getsize(file_path)
     if size_bytes < 1024 * 1024:
-        # 小于1MB，用KB
         kb = size_bytes / 1024
         return f"{kb:.2f} KB"
     else:
-        # 大于等于1MB，用MB
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
+
 
 def download_models():
     model_list = [
@@ -169,7 +173,8 @@ def download_models():
         ("wav2lip.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/wav2lip.pth", "checkpoints"),
         ("mapping_00109-model.pth.tar",
          "https://huggingface.co/guoyww/facevid2vid/resolve/main/mapping_00109-model.pth.tar", "checkpoints"),
-        ("parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
+        (
+        "parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
         ("GFPGANv1.4.pth", "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth",
          "checkpoints/gfpgan")
     ]
@@ -187,11 +192,13 @@ def download_models():
                     f.write(chunk)
         print(f"[完成] {dest}")
 
+
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
+
 
 def transcribe_audio(audio_file):
     if not audio_file:
@@ -201,16 +208,12 @@ def transcribe_audio(audio_file):
             return "❗ 找不到音频文件，请重新上传"
         if os.path.getsize(audio_file) < 2048:
             return "⚠️ 音频文件太小，可能上传不完整或为空，请重新上传"
-
         import soundfile as sf
         try:
             _ = sf.info(audio_file)
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
-
-        # 新增：显示文件大小
         size_str = format_file_size(audio_file)
-        # 这里保留原本逻辑
         result = asr_model.transcribe(audio_file, language="zh")
         simplified = ""
         for char in result["text"]:
@@ -223,20 +226,18 @@ def transcribe_audio(audio_file):
     except Exception as e:
         raise e
 
+
 def generate_video(image_path, audio_path):
     if not image_path or not os.path.exists(image_path):
         return "⚠️ 没有上传头像图片或文件不存在"
     if os.path.getsize(image_path) < 2048:
         return "⚠️ 上传的头像文件太小，可能无效"
-
     if not audio_path or not os.path.exists(audio_path):
         return "⚠️ 没有上传音频文件或文件不存在"
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
-
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
-
     launcher_path = os.path.abspath("sadtalker/launcher.py")
     cmd = [
         "python", launcher_path,
@@ -253,6 +254,7 @@ def generate_video(image_path, audio_path):
         return f"生成失败：\n命令：{' '.join(e.cmd)}\n返回码：{e.returncode}"
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
+
 
 def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -272,6 +274,7 @@ def save_recognition_history(text_raw, text_simplified):
     doc.add_paragraph(text_simplified)
     doc.save(filename_docx)
 
+
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
@@ -280,6 +283,7 @@ def export_recognition_zip():
             file_path = os.path.join(RECOGNIZED_DIR, filename)
             zipf.write(file_path, arcname=filename)
     return zip_path
+
 
 def search_history_by_question(query):
     hits = []
@@ -294,10 +298,10 @@ def search_history_by_question(query):
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
 
+
 demo = gr.Blocks(css=material_css)
 
 with demo:
-    # 将“吉安智能体”换成自定义 HTML，以醒目颜色和加粗居中显示
     gr.Markdown("""
     <h2 style="text-align:center; color:#0abab5; font-weight:bold; margin-bottom:0.5em;">
     🎤 吉安智能体
@@ -318,12 +322,14 @@ with demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
+
         def check_audio_upload_status(audio_file):
-            """音频文件上传后，检查大小并返回状态（含文件大小）"""
-            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048 and audio_file.endswith('.wav'):
+            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(
+                    audio_file) > 2048 and audio_file.endswith('.wav'):
                 size_str = format_file_size(audio_file)
                 return f"✅ 音频上传完成 (大小: {size_str})"
             return "⚠️ 音频文件过小或上传失败"
+
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
@@ -338,12 +344,14 @@ with demo:
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
+
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
                         return gr.update(visible=False)
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False)
                     return gr.update(value=image_file, visible=True)
+
 
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
@@ -359,20 +367,21 @@ with demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
+
         def check_image_upload_status(image_file):
-            """图片文件上传后，检查大小并返回状态（含文件大小）"""
             if isinstance(image_file, str) and os.path.exists(image_file):
                 size_str = format_file_size(image_file)
                 if os.path.getsize(image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
                     return f"✅ 头像上传完成 (大小: {size_str})"
             return "⚠️ 头像文件过小或上传失败"
 
+
         def check_audio_upload_status_generic(audio_file):
-            """音频文件上传后，检查大小并返回状态（含文件大小）"""
             if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048:
                 size_str = format_file_size(audio_file)
                 return f"✅ 音频上传完成 (大小: {size_str})"
             return "⚠️ 音频文件过小或上传失败"
+
 
         image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
                            outputs=image_name)
