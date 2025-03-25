@@ -47,28 +47,38 @@ html {
   --md-primary: #1976d2;
   --md-primary-dark: #1565c0;
   --md-secondary: #424242;
-  --md-background: #f9f9f9;
-  --md-surface: #ffffff;
   --md-text: #212121;
   --md-text-on-primary: #ffffff;
   --md-border-radius: 8px;
   --md-transition: 0.3s ease;
 }
 
-/* 背景：底层固定图片 + 半透明白色渐变 */
+/* 
+   背景思路：
+   1) 最底层先用羊皮纸色 (#f8ecc2) 填充
+   2) 再叠加一层半透明白色渐变
+   3) 最顶层再叠加 freemasonry.png
+
+   如果 freemasonry.png 加载失败，就不会显示图片，浏览器会直接显示下层的羊皮纸色 + 半透明渐变。
+*/
 html, body, .gradio-container {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', sans-serif;
   color: var(--md-text);
-  background:
-    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png") no-repeat center center fixed,
-    linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)) no-repeat fixed;
+
+  /* 背景层：最底是羊皮纸色，其上是半透明渐变，其上是 freemasonry.png */
+  background-color: #f8ecc2 !important; /* 羊皮纸色 */
+  background-image:
+    linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)),
+    url("https://raw.githubusercontent.com/EugeneYilia/JiAnAI/master/assets/images/freemasonry.png");
   background-size: cover, cover;
-  background-color: transparent !important;
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
 }
 
-/* 主要内容容器背景，设置为 70% 不透明 */
+/* 主要内容容器：70% 不透明度 */
 .tabs, .tabitem, .gr-box, .gr-group, .gr-row, .gr-column {
   background-color: rgba(255, 255, 255, 0.7) !important;
   border-radius: var(--md-border-radius) !important;
@@ -77,7 +87,7 @@ html, body, .gradio-container {
   padding: 12px !important;
 }
 
-/* 输入区域、文件上传、音频组件采用纯白背景 */
+/* 输入区、文件上传、音频组件：纯白背景 */
 .gr-textbox, .gr-file, .gr-audio {
   background-color: #ffffff !important;
   border-radius: var(--md-border-radius) !important;
@@ -100,8 +110,7 @@ html, body, .gradio-container {
   transform: scale(0.98);
 }
 
-/* Tab 按钮样式及点击响应 */
-
+/* Tab 按钮选中状态 + 点击缩放 */
 .tabs button.selected {
   color: var(--md-primary) !important;
   border-bottom: 3px solid var(--md-primary) !important;
@@ -117,6 +126,7 @@ html, body, .gradio-container {
   margin-top: 20px;
 }
 """
+
 
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
