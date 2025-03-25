@@ -3,13 +3,13 @@ import subprocess
 import warnings
 import zipfile
 from datetime import datetime
+import logging
 
 import gradio as gr
 import jieba
 import requests
 import torch
 import whisper
-import logging
 
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
@@ -131,7 +131,19 @@ html, body, .gradio-container {
 }
 """
 
+def filter_connection_reset_error(record: logging.LogRecord) -> bool:
+    """如果日志消息中包含强制关闭连接等信息，则不输出"""
+    msg = record.getMessage()
+    if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
+        return False
+    return True
 
+logger_asyncio = logging.getLogger("asyncio")
+logger_asyncio.addFilter(filter_connection_reset_error)
+
+############################################################################
+# 注册全局 & 初始化 TTS/ASR
+############################################################################
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -144,32 +156,16 @@ def safe_register_all_globals():
         "TTS.vocoder.models.wavernn": {"Wavernn"},
     })
 
-
 safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 asr_model = whisper.load_model("large")
 
-def filter_connection_reset_error(record: logging.LogRecord) -> bool:
-    """
-    如果日志消息中包含 "An existing connection was forcibly closed by the remote host"
-    或者出现 ConnectionResetError，则返回 False，不让其输出。
-    其他情况返回 True，正常输出。
-    """
-    msg = record.getMessage()
-    if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
-        return False
-    return True
-
-logger_asyncio = logging.getLogger("asyncio")
-logger_asyncio.addFilter(filter_connection_reset_error)
-
 ############################################################################
 # 辅助函数：格式化文件大小
 ############################################################################
 def format_file_size(file_path):
-    """根据文件大小，自动转换为KB或MB，返回字符串."""
     size_bytes = os.path.getsize(file_path)
     if size_bytes < 1024 * 1024:
         kb = size_bytes / 1024
@@ -178,6 +174,14 @@ def format_file_size(file_path):
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
 
+############################################################################
+# 核心功能函数
+############################################################################
+RECOGNIZED_DIR = "recognized"
+RECOGNIZED_EXPORT_DIR = "recognized_export"
+
+os.makedirs(RECOGNIZED_DIR, exist_ok=True)
+os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
 def download_models():
     model_list = [
@@ -187,8 +191,7 @@ def download_models():
         ("wav2lip.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/wav2lip.pth", "checkpoints"),
         ("mapping_00109-model.pth.tar",
          "https://huggingface.co/guoyww/facevid2vid/resolve/main/mapping_00109-model.pth.tar", "checkpoints"),
-        (
-        "parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
+        ("parsing_model.pth", "https://huggingface.co/guoyww/facevid2vid/resolve/main/parsing_model.pth", "checkpoints"),
         ("GFPGANv1.4.pth", "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth",
          "checkpoints/gfpgan")
     ]
@@ -206,13 +209,11 @@ def download_models():
                     f.write(chunk)
         print(f"[完成] {dest}")
 
-
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
-
 
 def transcribe_audio(audio_file):
     if not audio_file:
@@ -228,6 +229,7 @@ def transcribe_audio(audio_file):
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
         size_str = format_file_size(audio_file)
+        # 进行语音识别
         result = asr_model.transcribe(audio_file, language="zh")
         simplified = ""
         for char in result["text"]:
@@ -240,7 +242,6 @@ def transcribe_audio(audio_file):
     except Exception as e:
         raise e
 
-
 def generate_video(image_path, audio_path):
     if not image_path or not os.path.exists(image_path):
         return "⚠️ 没有上传头像图片或文件不存在"
@@ -250,6 +251,7 @@ def generate_video(image_path, audio_path):
         return "⚠️ 没有上传音频文件或文件不存在"
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
+
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
     launcher_path = os.path.abspath("sadtalker/launcher.py")
@@ -269,15 +271,16 @@ def generate_video(image_path, audio_path):
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
-
 def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.txt")
     filename_docx = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}.docx")
+
     with open(filename_txt, "w", encoding="utf-8") as f:
         f.write(f"[识别时间] {timestamp}\n")
         f.write(f"[原始文本]\n{text_raw}\n\n")
         f.write(f"[简体结果]\n{text_simplified}\n")
+
     from docx import Document
     doc = Document()
     doc.add_heading("语音识别结果", level=1)
@@ -288,7 +291,6 @@ def save_recognition_history(text_raw, text_simplified):
     doc.add_paragraph(text_simplified)
     doc.save(filename_docx)
 
-
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = f"recognized_export/recognized_export_{timestamp}.zip"
@@ -298,10 +300,9 @@ def export_recognition_zip():
             zipf.write(file_path, arcname=filename)
     return zip_path
 
-
 def search_history_by_question(query):
     hits = []
-    for filename in os.path.listdir(RECOGNIZED_DIR):
+    for filename in os.listdir(RECOGNIZED_DIR):
         path = os.path.join(RECOGNIZED_DIR, filename)
         if filename.endswith(".txt"):
             with open(path, "r", encoding="utf-8") as f:
@@ -311,7 +312,6 @@ def search_history_by_question(query):
     if not hits:
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
-
 
 demo = gr.Blocks(css=material_css)
 
@@ -336,14 +336,20 @@ with demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
-
+        # === 修改点：当用户移除文件时，不再显示“文件过小或上传失败” ===
         def check_audio_upload_status(audio_file):
-            if isinstance(audio_file, str) and os.path.exists(audio_file) and os.path.getsize(
-                    audio_file) > 2048 and audio_file.endswith('.wav'):
-                size_str = format_file_size(audio_file)
-                return f"✅ 音频上传完成 (大小: {size_str})"
-            return "⚠️ 音频文件过小或上传失败"
-
+            if not audio_file:
+                # 用户移除了文件或从未上传，不显示任何提示
+                return ""
+            if isinstance(audio_file, str) and os.path.exists(audio_file) and audio_file.endswith('.wav'):
+                # 如果确实存在并且是wav文件，则进一步检查大小
+                if os.path.getsize(audio_file) >= 2048:
+                    size_str = format_file_size(audio_file)
+                    return f"✅ 音频上传完成 (大小: {size_str})"
+                else:
+                    return "⚠️ 音频文件太小，可能无效"
+            # 其他情况，如非wav文件
+            return "⚠️ 请上传 WAV 格式且大于2KB 的音频文件"
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         transcribe_btn.click(fn=transcribe_audio, inputs=audio_input, outputs=asr_output)
@@ -358,14 +364,12 @@ with demo:
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
-
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
                         return gr.update(visible=False)
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False)
                     return gr.update(value=image_file, visible=True)
-
 
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
@@ -380,21 +384,28 @@ with demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
-
+        # === 修改点：当用户移除文件时，不再显示“文件过小或上传失败” ===
         def check_image_upload_status(image_file):
+            if not image_file:
+                return ""
             if isinstance(image_file, str) and os.path.exists(image_file):
-                size_str = format_file_size(image_file)
-                if os.path.getsize(image_file) > 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                if os.path.getsize(image_file) >= 2048 and image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    size_str = format_file_size(image_file)
                     return f"✅ 头像上传完成 (大小: {size_str})"
-            return "⚠️ 头像文件过小或上传失败"
-
+                else:
+                    return "⚠️ 头像文件太小或格式不正确"
+            return ""
 
         def check_audio_upload_status_generic(audio_file):
-            if audio_file and os.path.exists(audio_file) and os.path.getsize(audio_file) > 2048:
-                size_str = format_file_size(audio_file)
-                return f"✅ 音频上传完成 (大小: {size_str})"
-            return "⚠️ 音频文件过小或上传失败"
-
+            if not audio_file:
+                return ""
+            if isinstance(audio_file, str) and os.path.exists(audio_file):
+                if os.path.getsize(audio_file) >= 2048:
+                    size_str = format_file_size(audio_file)
+                    return f"✅ 音频上传完成 (大小: {size_str})"
+                else:
+                    return "⚠️ 音频文件太小或格式不正确"
+            return ""
 
         image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
                            outputs=image_name)
