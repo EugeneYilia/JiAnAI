@@ -11,6 +11,7 @@ import requests
 import torch
 import whisper
 
+from PIL import Image as PILImage  # 新增：用于获取图像分辨率
 from TTS.api import TTS
 from TTS.utils.radam import RAdam
 from opencc import OpenCC
@@ -61,7 +62,7 @@ html {
 
 /* 背景部分：
    1. 底层采用浓郁的羊皮纸色 (#f6e2b3)
-   2. 叠加细微重复线性渐变（45deg，模拟纸张纹理）
+   2. 叠加细微的重复线性渐变（45deg，模拟纸张纹理）
    3. 再叠加半透明白色渐变
    4. 最上层加载远程背景图片（若加载失败，则只显示前几层效果）
 */
@@ -141,9 +142,6 @@ def filter_connection_reset_error(record: logging.LogRecord) -> bool:
 logger_asyncio = logging.getLogger("asyncio")
 logger_asyncio.addFilter(filter_connection_reset_error)
 
-############################################################################
-# 注册全局 & 初始化 TTS/ASR
-############################################################################
 def safe_register_all_globals():
     torch.serialization._allowed_globals = {
         "__builtin__": set(dir(__builtins__)),
@@ -158,13 +156,20 @@ def safe_register_all_globals():
 
 safe_register_all_globals()
 
+import PIL
+from PIL import Image as PILImage  # 用于获取图像分辨率
+from datetime import datetime
+
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
+import whisper
 asr_model = whisper.load_model("large")
 
-############################################################################
-# 辅助函数：格式化文件大小
-############################################################################
+RECOGNIZED_DIR = "recognized"
+RECOGNIZED_EXPORT_DIR = "recognized_export"
+os.makedirs(RECOGNIZED_DIR, exist_ok=True)
+os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
+
 def format_file_size(file_path):
     size_bytes = os.path.getsize(file_path)
     if size_bytes < 1024 * 1024:
@@ -173,15 +178,6 @@ def format_file_size(file_path):
     else:
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
-
-############################################################################
-# 核心功能函数
-############################################################################
-RECOGNIZED_DIR = "recognized"
-RECOGNIZED_EXPORT_DIR = "recognized_export"
-
-os.makedirs(RECOGNIZED_DIR, exist_ok=True)
-os.makedirs(RECOGNIZED_EXPORT_DIR, exist_ok=True)
 
 def download_models():
     model_list = [
@@ -229,8 +225,9 @@ def transcribe_audio(audio_file):
         except Exception:
             return "⚠️ 音频文件格式不支持或内容损坏，请重新上传"
         size_str = format_file_size(audio_file)
-        # 进行语音识别
         result = asr_model.transcribe(audio_file, language="zh")
+        from opencc import OpenCC
+        cc = OpenCC('t2s')
         simplified = ""
         for char in result["text"]:
             if char in "。！？；，、,.!?;:":
@@ -336,19 +333,15 @@ with demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
-        # === 修改点：当用户移除文件时，不再显示“文件过小或上传失败” ===
         def check_audio_upload_status(audio_file):
             if not audio_file:
-                # 用户移除了文件或从未上传，不显示任何提示
                 return ""
             if isinstance(audio_file, str) and os.path.exists(audio_file) and audio_file.endswith('.wav'):
-                # 如果确实存在并且是wav文件，则进一步检查大小
                 if os.path.getsize(audio_file) >= 2048:
                     size_str = format_file_size(audio_file)
                     return f"✅ 音频上传完成 (大小: {size_str})"
                 else:
                     return "⚠️ 音频文件太小，可能无效"
-            # 其他情况，如非wav文件
             return "⚠️ 请上传 WAV 格式且大于2KB 的音频文件"
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
@@ -362,20 +355,30 @@ with demo:
                 image_name = gr.Textbox(label="头像文件名", interactive=False, max_lines=1)
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1,
                                           container=True, show_copy_button=True)
+                # 在这里预览图像并显示分辨率 + 时间戳
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
-                        return gr.update(visible=False)
+                        return gr.update(visible=False, label="")  # 移除时不显示任何信息
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
-                        return gr.update(visible=False)
-                    return gr.update(value=image_file, visible=True)
+                        return gr.update(visible=False, label="")
+                    # 计算图像分辨率
+                    im = PILImage.open(image_file)
+                    w, h = im.size
+                    # 获取当前时间戳
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    # 将图像文件设置到 value，并将 label 设置为 分辨率 + 时间戳
+                    return gr.update(
+                        value=image_file,
+                        visible=True,
+                        label=f"分辨率: {w}x{h}  |  上传时间: {ts}"
+                    )
 
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
         with gr.Row():
             with gr.Column():
-                # 将数字人动画的音频上传组件恢复为默认组件，避免Content-Length错误
                 driven_audio_input = gr.Audio(label="使用合成或自己语音", type="filepath", interactive=True)
                 audio_name = gr.Textbox(label="音频文件名", interactive=False, max_lines=1)
                 audio_status = gr.Textbox(label="音频上传状态", interactive=False, max_lines=1,
@@ -384,7 +387,6 @@ with demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
-        # === 修改点：当用户移除文件时，不再显示“文件过小或上传失败” ===
         def check_image_upload_status(image_file):
             if not image_file:
                 return ""
