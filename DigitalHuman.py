@@ -295,8 +295,7 @@ def generate_video(image_path, audio_path):
     if os.path.getsize(audio_path) < 2048:
         return "⚠️ 音频文件太小，可能无效或上传不完整"
 
-    # 将图像和音频移动到 /uploads/
-    new_image_path = move_file_to_uploads(image_path, file_type="image")
+    # 对音频依然调用移动函数存储到服务器
     new_audio_path = move_file_to_uploads(audio_path, file_type="audio")
 
     output_dir = "results"
@@ -305,7 +304,7 @@ def generate_video(image_path, audio_path):
     cmd = [
         "python", launcher_path,
         "--driven_audio", new_audio_path,
-        "--source_image", new_image_path,
+        "--source_image", image_path,  # 使用已存储的头像文件路径
         "--result_dir", output_dir,
         "--preprocess", "full",
         "--still",
@@ -318,6 +317,7 @@ def generate_video(image_path, audio_path):
 
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
+
 
 def save_recognition_history(text_raw, text_simplified):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -408,16 +408,19 @@ with demo:
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
 
+
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
                         return gr.update(visible=False, label="")
                     if os.path.getsize(image_file) < 2048 or not image_file.lower().endswith((".png", ".jpg", ".jpeg")):
                         return gr.update(visible=False, label="")
-                    im = PILImage.open(image_file)
+                    # 提前将头像存储到服务器
+                    new_path = move_file_to_uploads(image_file, file_type="image")
+                    im = PILImage.open(new_path)
                     w, h = im.size
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     return gr.update(
-                        value=image_file,
+                        value=new_path,
                         visible=True,
                         label=f"分辨率: {w}x{h}  |  上传时间: {ts}"
                     )
