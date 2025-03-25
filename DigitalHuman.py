@@ -85,7 +85,6 @@ html, body, .gradio-container {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   padding: 8px !important;
 }
-
 .gr-textbox textarea {
   min-height: 100px !important;
   background-color: #fff !important;
@@ -93,8 +92,8 @@ html, body, .gradio-container {
   border-radius: var(--md-border-radius) !important;
 }
 
-/* 按钮风格及点击响应效果 */
-button, .gr-button {
+/* 自定义按钮样式，仅针对 .gr-button */
+.gr-button {
   background-color: var(--md-primary) !important;
   color: var(--md-text-on-primary) !important;
   border: none !important;
@@ -105,11 +104,11 @@ button, .gr-button {
   box-shadow: 0 2px 4px rgba(0,0,0,0.15);
   padding: 0.6em 1.2em !important;
 }
-button:hover, .gr-button:hover {
+.gr-button:hover {
   background-color: var(--md-primary-dark) !important;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
-button:active, .gr-button:active {
+.gr-button:active {
   transform: scale(0.98);
 }
 
@@ -137,6 +136,21 @@ button:active, .gr-button:active {
 .footer, .share-link-container {
   text-align: center !important;
   margin-top: 20px;
+}
+
+/* 恢复音频控件默认外观，确保播放/暂停按钮显示 */
+.gr-audio audio {
+  appearance: auto !important;
+  -webkit-appearance: media-controls !important;
+  background: transparent !important;
+}
+.gr-audio audio::-webkit-media-controls-panel {
+  background: transparent !important;
+}
+.gr-audio audio::-webkit-media-controls-play-button,
+.gr-audio audio::-webkit-media-controls-pause-button {
+  display: block !important;
+  opacity: 1 !important;
 }
 """
 
@@ -306,9 +320,9 @@ def search_history_by_question(query):
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
 
-demo_config = gr.Blocks(css=material_css)
+demo = gr.Blocks(css=material_css)
 
-with demo_config as demo:
+with demo:
     # 将“吉安智能体”换成自定义 HTML，以醒目颜色和加粗居中显示
     gr.Markdown("""
     <h2 style="text-align:center; color:#ffcc00; font-weight:bold; margin-bottom:0.5em;">
@@ -415,4 +429,5 @@ with demo_config as demo:
             query_result = gr.Textbox(label="查询结果", lines=8)
             query_btn.click(fn=search_history_by_question, inputs=query_input, outputs=query_result)
 
-demo.launch(share=False)
+if __name__ == "__main__":
+    demo.launch()
