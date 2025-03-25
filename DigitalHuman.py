@@ -228,20 +228,19 @@ def download_models():
 
 def move_file_to_uploads(original_path, file_type="unknown"):
     """
-    将临时文件移动到 /uploads/ 文件夹并重命名（带时间戳），返回新路径。
+    将临时文件移动到 /uploads/ 文件夹并重命名（包含时间戳、文件类型以及原始文件名），返回新路径。
     同时写入日志记录上传信息。
     """
     if not original_path or not os.path.exists(original_path):
         return original_path
 
     base_name = os.path.basename(original_path)
-    ext = os.path.splitext(base_name)[1]
-    new_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_type}{ext}"
+    # 新文件名包含时间戳、文件类型和原始文件名
+    new_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_type}_{base_name}"
     new_path = os.path.join(UPLOADS_DIR, new_name)
     try:
         shutil.move(original_path, new_path)
         size_kb = os.path.getsize(new_path) / 1024
-        # 关键：只使用我们定义的 app_logger
         app_logger.info(f"Uploaded {file_type} -> {new_path} ({size_kb:.2f} KB)")
         return new_path
     except Exception as e:
