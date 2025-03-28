@@ -50,13 +50,21 @@ app_logger.addHandler(fh)
 
 app_logger.propagate = False
 
+# 新增语音识别日志器，记录每一次识别结果
+asr_logger = logging.getLogger("asr_logger")
+asr_logger.setLevel(logging.INFO)
+while asr_logger.handlers:
+    asr_logger.handlers.pop()
+asr_fh = logging.FileHandler(os.path.join(UPLOADS_DIR, "recognized.log"), encoding="utf-8")
+asr_fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+asr_logger.addHandler(asr_fh)
+asr_logger.propagate = False
 
 def filter_connection_reset_error(record: logging.LogRecord) -> bool:
     msg = record.getMessage()
     if "ConnectionResetError" in msg or "forcibly closed by the remote host" in msg:
         return False
     return True
-
 
 app_logger.addFilter(filter_connection_reset_error)
 
@@ -154,7 +162,6 @@ html, body, .gradio-container {
 }
 """
 
-
 # --------------------------------------------------------------------------
 # 全局设置及初始化 TTS/ASR
 def safe_register_all_globals():
@@ -169,7 +176,6 @@ def safe_register_all_globals():
         "TTS.vocoder.models.wavernn": {"Wavernn"},
     })
 
-
 safe_register_all_globals()
 
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
@@ -180,7 +186,6 @@ tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 # 使用字典缓存不同模型
 asr_models = {}
 
-
 def get_asr_model(model_size):
     """
     根据 model_size 加载 Whisper 模型，缓存已加载的模型
@@ -189,7 +194,6 @@ def get_asr_model(model_size):
     if model_size not in asr_models:
         asr_models[model_size] = whisper.load_model(model_size)
     return asr_models[model_size]
-
 
 # --------------------------------------------------------------------------
 # 辅助函数：格式化文件大小
@@ -201,7 +205,6 @@ def format_file_size(file_path):
     else:
         mb = size_bytes / (1024 * 1024)
         return f"{mb:.2f} MB"
-
 
 # --------------------------------------------------------------------------
 # 核心功能函数
@@ -253,13 +256,11 @@ def move_file_to_uploads(original_path, file_type="unknown"):
         app_logger.error(f"move_file_to_uploads error: {e}")
         return original_path
 
-
 def generate_speech(text):
     output_path = "output.wav"
     tts.tts_to_file(text=text, file_path=output_path)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
-
 
 def transcribe_audio(audio_file, model_size):
     if not audio_file:
@@ -290,13 +291,13 @@ def transcribe_audio(audio_file, model_size):
             else:
                 simplified += cc.convert(char)
 
-        # 记录识别日志，写明使用的模型
+        # 记录识别日志，写明使用的模型和识别结果
         app_logger.info(f"语音识别使用模型: {model_size}，识别结果: {simplified}")
+        asr_logger.info(f"语音识别使用模型: {model_size}，识别结果: {simplified}")  # 新增记录到 recognized.log
         save_recognition_history(result["text"], simplified, model_size)
         return f"识别结果（文件大小: {size_str}）：\n{simplified}"
     except Exception as e:
         raise e
-
 
 def generate_video(image_path, audio_path):
     if not image_path or not os.path.exists(image_path):
@@ -330,7 +331,6 @@ def generate_video(image_path, audio_path):
     output_video_path = os.path.join(output_dir, "result.mp4")
     return output_video_path if os.path.exists(output_video_path) else "生成失败，未找到视频文件"
 
-
 def save_recognition_history(text_raw, text_simplified, model_used):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_txt = os.path.join(RECOGNIZED_DIR, f"recognized_{timestamp}_{model_used}.txt")
@@ -353,7 +353,6 @@ def save_recognition_history(text_raw, text_simplified, model_used):
     doc.add_paragraph(text_simplified)
     doc.save(filename_docx)
 
-
 def export_recognition_zip():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = os.path.join(RECOGNIZED_EXPORT_DIR, f"recognized_export_{timestamp}.zip")
@@ -362,7 +361,6 @@ def export_recognition_zip():
             file_path = os.path.join(RECOGNIZED_DIR, filename)
             zipf.write(file_path, arcname=filename)
     return zip_path
-
 
 def search_history_by_question(query):
     hits = []
@@ -376,7 +374,6 @@ def search_history_by_question(query):
     if not hits:
         return "未找到相关内容。请尝试输入更常见的关键词。"
     return "\n\n".join(hits)
-
 
 demo = gr.Blocks(css=material_css)
 
@@ -404,7 +401,6 @@ with demo:
         transcribe_btn = gr.Button("📑 识别")
         asr_output = gr.Textbox(label="识别结果")
 
-
         def check_audio_upload_status(audio_file):
             if not audio_file:
                 return ""
@@ -415,7 +411,6 @@ with demo:
                 else:
                     return "⚠️ 音频文件太小，可能无效"
             return "⚠️ 请上传 WAV 格式且大于2KB 的音频文件"
-
 
         audio_input.change(fn=check_audio_upload_status, inputs=audio_input, outputs=upload_status)
         # 识别按钮同时传入音频文件和模型选择
@@ -430,7 +425,6 @@ with demo:
                 image_status = gr.Textbox(label="头像上传状态", interactive=False, max_lines=1,
                                           container=True, show_copy_button=True)
                 image_preview = gr.Image(label="头像预览", interactive=False)
-
 
                 def update_image_preview(image_file):
                     if not image_file or not os.path.exists(image_file):
@@ -447,7 +441,6 @@ with demo:
                         label=f"分辨率: {w}x{h}  |  上传时间: {ts}"
                     )
 
-
                 image_input.change(fn=update_image_preview, inputs=image_input, outputs=image_preview)
 
         with gr.Row():
@@ -460,7 +453,6 @@ with demo:
         generate_video_btn = gr.Button("🎥 生成动画")
         video_output = gr.Video(label="数字人视频")
 
-
         def check_image_upload_status(image_file):
             if not image_file:
                 return ""
@@ -472,7 +464,6 @@ with demo:
                     return "⚠️ 头像文件太小或格式不正确"
             return ""
 
-
         def check_audio_upload_status_generic(audio_file):
             if not audio_file:
                 return ""
@@ -483,7 +474,6 @@ with demo:
                 else:
                     return "⚠️ 音频文件太小或格式不正确"
             return ""
-
 
         image_input.change(fn=lambda f: os.path.basename(f) if f else "未选择文件", inputs=image_input,
                            outputs=image_name)
