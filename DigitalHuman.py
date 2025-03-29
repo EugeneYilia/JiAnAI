@@ -1,22 +1,19 @@
+import logging
 import os
+import shutil
 import subprocess
 import warnings
 import zipfile
 from datetime import datetime
-import logging
-import shutil
 
 import gradio as gr
 import jieba
 import requests
 import torch
 import whisper
-
 from PIL import Image as PILImage  # 用于获取图像分辨率
 from TTS.api import TTS
-from TTS.utils.radam import RAdam
 from opencc import OpenCC
-from torch.serialization import add_safe_globals
 
 from utils.CutVoice import trim_tail_by_energy_and_gradient
 
@@ -74,7 +71,6 @@ asyncio_logger.addFilter(filter_connection_reset_error)
 
 # --------------------------------------------------------------------------
 # 注册 RAdam 类及初始化 OpenCC
-add_safe_globals({"RAdam": RAdam})
 cc = OpenCC('t2s')
 
 # --------------------------------------------------------------------------
