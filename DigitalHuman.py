@@ -15,6 +15,10 @@ from PIL import Image as PILImage  # 用于获取图像分辨率
 from TTS.api import TTS
 from opencc import OpenCC
 
+from pydub import AudioSegment
+from pydub.effects import speedup
+import re
+
 from utils.CutVoice import trim_tail_by_energy_and_gradient
 
 # --------------------------------------------------------------------------
@@ -277,8 +281,35 @@ def move_file_to_uploads(original_path, file_type="unknown"):
 
 def generate_speech(text):
     output_path = "output.wav"
-    tts.tts_to_file(text=text, file_path=output_path, speed=0.5)
+    tts.tts_to_file(text=text, file_path=output_path, speed=0.1)
     trim_tail_by_energy_and_gradient(output_path)
+    return output_path
+
+def change_speed(audio_segment, speed=1.0):
+    # 为了防止 speedup 限制（atempo 0.5~2.0），做速度逆操作
+    # 降速到 0.5 = 加速 2.0 后再 time stretch 回来
+    return audio_segment._spawn(audio_segment.raw_data, overrides={
+        "frame_rate": int(audio_segment.frame_rate * speed)
+    }).set_frame_rate(audio_segment.frame_rate)
+
+def split_text_to_sentences(text):
+    # 按中文标点切句
+    sentences = re.split(r'(?<=[。！？；，、])', text)
+    return [s.strip() for s in sentences if s.strip()]
+
+def generate_long_speech(text, output_path="output.wav"):
+    sentences = split_text_to_sentences(text)
+    combined = AudioSegment.empty()
+
+    for i, sent in enumerate(sentences):
+        temp_path = f"temp_{i}.wav"
+        tts.tts_to_file(text=sent + "。", file_path=temp_path, speed=0.1)
+        trim_tail_by_energy_and_gradient(temp_path)
+        seg = AudioSegment.from_wav(temp_path)
+        slowed_seg = change_speed(seg, speed=0.9)
+        combined += slowed_seg
+
+    combined.export(output_path, format="wav")
     return output_path
 
 def transcribe_audio(audio_file, model_size):
@@ -407,7 +438,7 @@ with demo:
         text_input = gr.Textbox(label="输入文字")
         generate_btn = gr.Button("🎧 合成语音")
         output_audio = gr.Audio(label="语音文件", type="filepath", interactive=True)
-        generate_btn.click(fn=generate_speech, inputs=text_input, outputs=output_audio)
+        generate_btn.click(fn=generate_long_speech, inputs=text_input, outputs=output_audio)
 
     with gr.Tab("语音转文字"):
         with gr.Row():

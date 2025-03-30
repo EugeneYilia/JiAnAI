@@ -12,3 +12,4 @@ numpy  # 可能被其他库依赖
 scipy  # 可能被其他库依赖
 # 添加TTS如果是通过pip可安装的
 TTS
+pydub
