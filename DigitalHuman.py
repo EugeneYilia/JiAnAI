@@ -192,7 +192,12 @@ def safe_register_all_globals():
 
 safe_register_all_globals()
 
+# 女声
 MODEL_NAME = "tts_models/zh-CN/baker/tacotron2-DDC-GST"
+
+
+# 男声
+# MODEL_NAME = "tts_models/en/ljspeech/tacotron2-DDC"
 tts = TTS(model_name=MODEL_NAME, progress_bar=True, gpu=False)
 
 # 删除原来的固定加载 asr 模型，改为动态加载
@@ -272,7 +277,7 @@ def move_file_to_uploads(original_path, file_type="unknown"):
 
 def generate_speech(text):
     output_path = "output.wav"
-    tts.tts_to_file(text=text, file_path=output_path)
+    tts.tts_to_file(text=text, file_path=output_path, speed=0.5)
     trim_tail_by_energy_and_gradient(output_path)
     return output_path
 
