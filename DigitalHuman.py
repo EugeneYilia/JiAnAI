@@ -151,10 +151,27 @@ html, body, .gradio-container {
   transform: scale(0.98);
 }
 
-/* Footer 区域 */
-.footer, .share-link-container {
-  text-align: center !important;
-  margin-top: 20px;
+/* 🚩 强制底部 Footer 所有内容为爱马仕橙 */
+footer button.show-api,
+footer button.show-api *,
+footer button.settings,
+footer button.settings *,
+footer a.built-with,
+footer a.built-with *,
+footer .built-with * {
+  color: #FF7F00 !important;
+  fill: #FF7F00 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+/* 🎯 专门强制修改 Settings 的齿轮图标 */
+footer button.settings svg,
+footer button.settings path {
+  fill: #FF7F00 !important;
+  stroke: #FF7F00 !important;
+  color: #FF7F00 !important;
 }
 """
 
