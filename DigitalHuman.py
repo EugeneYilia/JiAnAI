@@ -173,6 +173,7 @@ footer button.settings path {
   stroke: #FF7F00 !important;
   color: #FF7F00 !important;
 }
+
 """
 
 # --------------------------------------------------------------------------
