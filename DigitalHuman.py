@@ -306,7 +306,7 @@ def generate_long_speech(text, output_path="output.wav"):
         tts.tts_to_file(text=sent + "。", file_path=temp_path, speed=0.1)
         trim_tail_by_energy_and_gradient(temp_path)
         seg = AudioSegment.from_wav(temp_path)
-        slowed_seg = change_speed(seg, speed=0.9)
+        slowed_seg = change_speed(seg, speed=0.8)
         combined += slowed_seg
 
     combined.export(output_path, format="wav")
